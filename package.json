@@ -1,0 +1,23 @@
+{
+  "name": "gb-supplier-sim",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Simulation/replay platform for a GB renewables-backed electricity supplier hedging book",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "extract": "python scripts/extract_gb.py GB",
+    "verify": "tsx packages/core/test/verify.ts",
+    "build:core": "npm run build -w @gbsim/core",
+    "dev": "npm run build:core && npm run dev -w @gbsim/web",
+    "build:web": "npm run build:core && npm run build -w @gbsim/web",
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.20",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

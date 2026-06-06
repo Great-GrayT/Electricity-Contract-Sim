@@ -1,0 +1,219 @@
+
+Managing Volume, Price and Volatility Exposure
+for a GB Renewables-Backed Electricity Supplier
+Options and structured-flexibility strategies, with a simulation and coding programme
+Research report    ·    Context: UrbanChain-style peer-to-peer renewable supply    ·    May 2026
+
+Contents
+TOC \h \o "1-2"Contents PAGEREF _Toc231160871 \h 2
+1. Executive summary PAGEREF _Toc231160872 \h 3
+2. Market context: GB power and the peer-to-peer model PAGEREF _Toc231160873 \h 3
+3. The three exposures and why they compound PAGEREF _Toc231160874 \h 4
+4. Options structures PAGEREF _Toc231160875 \h 5
+4.1 Caps, floors and collars PAGEREF _Toc231160876 \h 5
+4.2 Swing options and swaptions PAGEREF _Toc231160877 \h 6
+5. Structured-flexibility structures PAGEREF _Toc231160878 \h 7
+5.1 PPA shape, sleeving and peer-to-peer matching PAGEREF _Toc231160879 \h 7
+5.2 Proxy revenue swaps and capture-price hedges PAGEREF _Toc231160880 \h 7
+5.3 Battery storage, tolling and demand-side flexibility PAGEREF _Toc231160881 \h 7
+6. The integrated hedging book PAGEREF _Toc231160882 \h 9
+7. Peer-to-peer-specific implications PAGEREF _Toc231160883 \h 11
+8. Build programme: stack, data and phasing PAGEREF _Toc231160884 \h 12
+8.1 Recommended stack PAGEREF _Toc231160885 \h 12
+8.2 GB data sources PAGEREF _Toc231160886 \h 12
+8.3 Suggested phasing PAGEREF _Toc231160887 \h 13
+8.4 Rigour notes PAGEREF _Toc231160888 \h 13
+9. Key sources PAGEREF _Toc231160889 \h 13
+
+
+0. charts
+
+Annual hourly averages show a stable U-shaped load profile: minimum demand occurs overnight at roughly 20,900 to 22,400 MW, rising through morning to 28,000 to 29,000 MW, then peaking at 32,000 to 34,000 MW during 16:00 to 19:00. 2021 is highest, 28,700 MW, while 2022 to 2025 remain lower overall.
+
+Annual day-ahead prices exhibit strong volatility: average prices rose from £33.5/MWh in 2020 to £114.9/MWh in 2021, peaked at £198.0/MWh in 2022, then declined to £93.4, £73.8, and £79.8/MWh in 2023 to 2025. Recent 2026 pricing, £92.4/MWh, suggests a moderate rebound, with persistent evening peaks around hours 16 to 17.
+The sharp increase in GB day-ahead electricity prices in 2021 and 2022 was mainly a gas-price-driven wholesale shock, amplified by the marginal pricing structure of the power market. In GB, gas-fired generation frequently sets the clearing price, so higher gas costs transmit directly into electricity prices; gas reportedly set the power price 97% of the time in 2021 despite supplying only 37% of generation. 
+In 2021, prices rose as economies reopened after COVID-19, increasing global fuel demand, while gas supply remained constrained. This was intensified by lower renewable/nuclear availability and specific system-tightness events, including low wind output and the IFA interconnector fire, which pushed GB day-ahead prices near record levels. 
+In 2022, the Russia-Ukraine war caused a major gas-price spike and risk premium across Europe. This fed into GB electricity prices through gas-fired marginal generation. Additional pressure came from high carbon prices and French nuclear outages, which increased cross-border stress and contributed to GB becoming a net electricity exporter in 2022. 
+So, the rise was not primarily caused by higher electricity demand, but by expensive gas, carbon costs, lower flexible supply margins, interconnector constraints, and European energy-security risk.
+
+
+
+The generation mix shows clear fuel-specific operating patterns. Fossil gas is the dominant flexible source, averaging about 9.8 GW, rising from 6.6 to 7.0 GW overnight to 13.1 to 13.3 GW at 17:00 to 18:00, indicating its role in meeting peak demand. Nuclear output is almost flat at around 4.43 GW, providing baseload generation. Wind is also substantial, with offshore and onshore averaging about 3.67 GW and 3.30 GW, though with limited intraday structure. Solar has the strongest daily shape, increasing from near zero overnight to about 4.8 GW around midday, then falling sharply by evening. Biomass is relatively stable at about 1.94 GW. Hydro run-of-river remains small, while pumped storage increases strongly during evening peaks, reaching about 0.86 GW at 18:00. Coal is marginal and oil is effectively zero. Across the sample, generation is structurally dominated by gas, wind, nuclear, biomass and solar. On average, renewables account for about 41.7% of production, excluding pumped storage; fossil fuels account for 39.1%, and nuclear for 17.2%. The annual mix shows a clear transition. Fossil gas falls from 44.6% in 2021 to 29.2% in 2026, while coal declines to zero by 2025. Renewables rise strongly, from 33.8% in 2021 to 52.6% in 2025 and 54.2% in 2026. This growth is mainly wind-led: wind rises from about 20.3% in 2021 to 38.2% in 2026. The hourly structure shows nuclear as stable baseload, solar concentrated around midday, and gas plus pumped storage responding to evening peaks. Overall, the system shifts from fossil-led flexibility toward a wind-heavy renewable structure.
+
+Across the monthly averages, total wind production is about 5.86 GW, with strong seasonality. Output is highest in winter and early spring, especially Jan 2026 at 12.23 GW, Feb 2026 at 11.92 GW, Dec 2025 at 11.85 GW, and Dec 2024 at 10.86 GW. By contrast, summer production is much weaker, often near 1.8 to 3.8 GW, such as Jun 2026 at 1.89 GW, May 2024 at 1.68 GW, and Jul 2024 at 1.80 GW. This implies a winter-to-summer difference of roughly 5.7 GW, with winter output around 2.7 times summer output.
+The wind-speed relationship is clearly positive. Average 10 m wind speed is 3.91 m/s, while 100 m wind speed is 6.57 m/s, showing the stronger wind resource at turbine-relevant height. The estimated correlation between wind production and 100 m wind speed is high, around r = 0.74, compared with r = 0.57 for 10 m wind speed. This suggests that 100 m wind speed explains production behaviour better than surface wind speed.
+Temperature is negatively related to wind generation, with an estimated r = -0.66. This reflects the seasonal structure: colder months have stronger winds and higher wind output, while warmer months show lower production. The two wind-speed variables are highly correlated, around r = 0.94, but 100 m wind remains the more relevant operational driver. Overall, wind production is primarily wind-speed-driven, strongly seasonal, and inversely related to temperature.
+
+The table shows a strong seasonal structure between temperature (2m) and solar generation. Across all monthly observations, average solar output is about 1.46 GW, with an average temperature of 11.59°C. Solar generation is lowest in winter, especially Q4 at about 0.60 GW and Q1 at 0.89 GW, then rises sharply in spring and early summer, peaking in Q2 at about 2.40 GW. Q3 remains high at 1.91 GW, but is generally below Q2 despite higher temperatures, suggesting that daylight length and solar irradiance matter more than temperature alone.
+The annual trend also shows growth in solar output. Average solar generation rises from about 1.28 GW in 2020 to 1.97 GW in 2025, a gain of roughly 53%. The partial 2026 average is even higher at 2.13 GW, although it only covers January to June.
+The correlation between monthly temperature and solar generation is strongly positive at approximately r = 0.71. A simple linear reading implies about 128 MW higher solar output per 1°C increase. However, this relationship is seasonal, not purely causal: solar peaks in late spring and summer, while winter months combine low temperature, shorter daylight hours, and weak solar production.
+
+The table highlights the seasonal complementarity between solar and wind generation. Across the sample, average solar output is about 1.46 GW, while total wind averages 5.84 GW, meaning wind contributes around 80% of combined solar-wind production and is about 4 times larger than solar.
+Solar has a clear summer profile: it is lowest in Q4, around 0.60 GW, and Q1, around 0.89 GW, then peaks in Q2 at about 2.40 GW and remains high in Q3 at about 1.91 GW. Wind shows the opposite pattern, with higher production in colder months: roughly 7.6 GW in Q1 and 7.3 GW in Q4, compared with about 4.0 to 4.2 GW in Q2 and Q3.
+The monthly correlation between solar and wind is therefore moderately negative, approximately r = -0.41, indicating that high solar months tend to coincide with lower wind output. Structurally, this reduces seasonal variability in renewable supply, as wind supports winter generation while solar strengthens spring and summer output. Solar also shows clear growth, rising from about 1.28 GW in 2020 to nearly 1.97 GW in 2025.
+
+1. Executive summary
+A Great Britain electricity supplier backed by renewables is not simply long power and short customer demand. It is long a weather-shaped, low-capture generation profile and short a differently-shaped demand profile, with the residual settled half-hourly against a volatile day-ahead and imbalance (cash-out) price. Three exposures dominate: volume (how many MWh actually flow, on both the generation and demand sides), price (the level paid or received, including the capture discount renewables suffer versus baseload), and volatility (the dispersion of those prices, which widens structurally as renewable penetration grows).
+The central difficulty is that for a renewable supplier these three are correlated against the book. When the wind blows hard the supplier is long a large volume of cheap power; when it drops the supplier is short and must buy into a spiking market. A naive baseload hedge makes this worse. The job is therefore not to hedge price, but to hedge price conditional on volume, which is why options and structured flexibility, rather than plain forwards, are the right instruments.
+This report sets out the toolkit across two families: financial options (caps, floors, collars, swing options, swaptions) and structured-flexibility structures (PPA shape choice, sleeving and peer-to-peer matching, proxy revenue swaps, capture-price hedges, battery storage with revenue stacking, tolling and day-ahead swaps, and demand-side flexibility). For each section it specifies a concrete simulation and coding project, with the quantitative metrics and visual outputs that project should produce, scaled for an engineer who can build the full stack.
+Key takeaways
+Forwards and PPAs handle the price level; options handle price-conditional-on-volume; structured flexibility (proxy revenue swaps, batteries, demand-side response) handles the shape and volatility that neither can reach alone.
+The proxy revenue swap is the only single instrument that addresses all three exposures at once, which is why it is the structural workhorse for financing renewable-backed revenue.
+Battery revenue stacking is the primary volatility play, and stacking across markets reduces revenue volatility through diversification rather than adding to it.
+For a peer-to-peer supplier, physical half-hourly matching firms most of the volume and shape risk before any financial hedge is needed, so the financial layer concentrates on residual price, capture and tail risk.
+2. Market context: GB power and the peer-to-peer model
+The GB wholesale market settles on a half-hourly basis across a day-ahead auction, an intraday market and, in real time, the Balancing Mechanism operated by the National Energy System Operator. Suppliers and generators that are out of position are settled at a single imbalance (cash-out) price, which is the most volatile price in the stack. Renewables now supply close to half of annual GB demand, so renewable output is a primary driver of the price itself.
+UrbanChain is a Manchester-based, Ofgem-licensed peer-to-peer exchange that matches named renewable generators to corporate and domestic consumers on a half-hourly basis, using machine learning to optimise the match. By aggregating and profiling diverse generation and load it decouples participants from the gas-indexed wholesale price and drives portfolio imbalance down to a fraction of the level a conventional supplier carries. That matching engine is itself a structured-flexibility product: it firms volume and shape physically, before any derivative is layered on. The supplier-facing fixed tariff, with a commodity price cap, is in effect a cap option handed to the customer.
+3. The three exposures and why they compound
+Volume risk is two-sided. Renewable generation is weather-driven and non-dispatchable, while customer demand deviates from forecast; the generation side is the larger headache. Price risk carries a renewables-specific subtlety: the capture price, or quality factor, captures the fact that wind and solar earn below baseload because they generate when everything else does. As the grid greens, that capture discount widens structurally, an effect known as cannibalisation. Volatility risk is the dispersion of prices: near-zero or negative prices in high-renewable periods, and sharp spikes when the weather drops and the system tightens.
+These three compound because they are negatively correlated for the book. High output coincides with weak prices (long cheap volume); low output coincides with scarcity prices (short into a spike). This is shape, or profile, risk, and it is why a flat baseload hedge backfires: firm power is sold that cannot always be produced, forcing buy-backs at peaks. Figure 1 illustrates the mechanism on a representative day, with the volume-weighted capture price sitting below the simple baseload average.
+
+Figure 1. Illustrative day profile. Renewable output peaks at midday when price is lowest; the volume-weighted capture price falls below the baseload average. Synthetic model.
+
+Build it: synthetic GB supply-book exposure simulator
+Objective: build a half-hourly digital twin of a renewables-backed GB supply book and quantify its unhedged volume, price and volatility exposure, with cannibalisation emerging endogenously.
+Method: Simulate wind from a Weibull wind-speed process through a turbine power curve, and solar from a clear-sky model with stochastic cloud cover (or calibrate both to ERA5 / Renewables.ninja reanalysis). Model demand with a temperature-driven load model plus daily and weekly seasonality. Generate price by mapping residual demand (demand minus renewables) through a merit-order stack so cannibalisation arises endogenously, add a mean-reverting Ornstein-Uhlenbeck short-term component, and bolt on a regime-switching or Hawkes-process jump term for spikes. Settle the net position at a separately-simulated, fatter-tailed cash-out price.
+Quantitative outputs: capture price and quality-factor distribution; volume-versus-price Pearson and Spearman correlation; half-hourly imbalance-volume distribution; unhedged gross-margin distribution with 95% and 99% Value-at-Risk and Conditional VaR; the merchant-nose cost (the extra cost attributable purely to shape).
+Visual outputs: dual-axis representative-day profile (generation versus price); a price heatmap over half-hour by month; a scatter of renewable output against price with a fitted cannibalisation slope; a capture-rate time series against baseload; a tornado chart of margin sensitivity to wind, solar, demand and the price beta.
+Stack: Python (numpy, pandas, statsmodels, arch for the volatility term); Elexon BMRS and Renewables.ninja / ERA5 for calibration; an optional Next.js dashboard (recharts or visx) for the interactive day profile and heatmap.
+4. Options structures
+Options let the supplier shape its payoff asymmetrically, paying a premium to cap downside while retaining some upside, which is exactly what a volume-uncertain book needs.
+4.1 Caps, floors and collars
+A bought cap (a call) protects the short side: when the fleet underproduces and the supplier tops up at the day-ahead or imbalance price, a call struck at, say, 120 pounds per MWh caps that cost. A bought floor (a put) protects revenue on generation. The workhorse is the collar: a long cap funded by a short floor, frequently structured at zero premium by choosing the floor strike so its proceeds offset the cap cost. The supplier locks price into a band, protected against spikes, in exchange for giving up the deepest downside. Figure 2 shows the resulting payoff.
+
+Figure 2. Zero-cost collar. The effective price paid is locked between the sold floor and the bought cap; the floor premium funds the cap. Illustrative strikes.
+4.2 Swing options and swaptions
+The most renewable-relevant option is the swing option. The holder can draw a variable volume between an instantaneous minimum and maximum, subject to a cumulative limit, at a fixed strike, taking more on low-generation days and less on high. This hedges price and volume jointly, which a plain forward cannot, and it can be priced and replicated with a strip of forwards and call options. A swaption (an option to enter a forward or swap later) lets the supplier keep optionality over when to lock a hedge, for example waiting to see how a season's wind develops, in exchange for a premium.
+
+Build it: power-option pricer and hedge backtester
+Objective: price each option structure on GB power and measure how much it cuts margin variance and tail risk.
+Method: Drive prices with a Lucia-Schwartz two-factor model (deterministic seasonal component, short-term OU factor, long-term equilibrium) calibrated to the forward curve, with jumps for spikes. Price caps and floors in closed form with Black-76 on monthly and seasonal baseload and peak forwards; build the collar as long cap plus short floor and root-find the zero-premium floor strike for a chosen cap. Price the swing option by Longstaff-Schwartz least-squares Monte Carlo (or stochastic dynamic programming) with instantaneous and cumulative volume constraints, returning the exercise policy. Price the swaption by Monte Carlo on the forward. Compute Greeks by bump-and-revalue or pathwise differentiation.
+Quantitative outputs: premia and Greeks (delta, gamma, vega, theta); the zero-cost collar floor strike; swing value versus number of rights and the marginal value of the kth right; hedge effectiveness as percentage reduction in margin variance and in 95% CVaR; a cost-of-hedge versus risk-reduction ratio.
+Visual outputs: collar payoff band; premium-versus-strike curves; overlaid hedged and unhedged P&L histograms with VaR markers; a Greeks surface (value against spot and volatility); a swing exercise-boundary plot; an LSMC convergence plot.
+Stack: Python (numpy, scipy, optional QuantLib, numba for path speed); optionally a React collar designer where dragging the cap and floor strikes live-updates the payoff band and premium.
+5. Structured-flexibility structures
+These embed flexibility in the contract or in a physical asset, absorbing the shape, volume and volatility that financial options alone leave on the table.
+5.1 PPA shape, sleeving and peer-to-peer matching
+The PPA shape choice is the first and biggest structural lever. A pay-as-produced PPA leaves volume and shape risk with the offtaker (cheapest per MWh, but the buyer wears the weather); a baseload-firmed PPA pushes the generator to deliver a flat block (they take the shape risk, at a higher price); a shaped PPA sits between the two. In a sleeved PPA the supplier routes a generator's output to a corporate buyer and manages the imbalance in the middle for a fee. Peer-to-peer matching generalises this: aggregating diverse generators and consumers so the portfolio's net imbalance is small is itself a volume- and shape-firming product, addressed directly in Section 7.
+5.2 Proxy revenue swaps and capture-price hedges
+The proxy revenue swap is the structural workhorse for renewables. Instead of fixing pounds per MWh, it fixes pounds per year for the project's proxy revenue, the revenue it should have earned given independently measured wind or irradiance multiplied by prices, settled fixed-for-floating. Because it settles on proxy rather than actual generation, it strips out price, weather and shape risk in a single instrument while leaving operational performance with the owner. Sister products include the Volume Firming Agreement and the Solar Revenue Put. To target cannibalisation specifically, a quality-factor put or achieved-revenue swap pays out when the fleet's capture ratio degrades below a threshold.
+5.3 Battery storage, tolling and demand-side flexibility
+A battery is the volatility play. It absorbs surplus when prices are low or negative and releases at peaks, netting down the volume-by-price anti-correlation. In GB the value comes from revenue stacking across wholesale arbitrage, the Balancing Mechanism, frequency response and the Capacity Market, and crucially this stacking reduces revenue volatility because the streams diversify. Because the asset's own income is volatile, it is then wrapped: a tolling agreement pays a fixed fee for the right to dispatch its flexibility, or a day-ahead swap exchanges volatile daily revenue for a fixed return. On the demand side, time-of-use tariffs and demand-side response shift load toward high-renewable half-hours, shrinking net imbalance, and aggregated flexibility can also earn in the balancing and capacity markets. Figure 3 shows the basic arbitrage logic.
+
+Figure 3. Battery dispatch over a representative day: charge during the cheap troughs, discharge into the evening peak, tracked by state of charge. Illustrative.
+
+Build it (A): proxy revenue swap valuation and bankability simulator
+Objective: value a proxy revenue swap, quantify how much revenue variance it removes, and show the bankability uplift.
+Method: Simulate proxy generation (weather index times negotiated efficiency) and proxy revenue (proxy MWh times price); settle fixed-for-floating against a negotiated annual sum; compute the fair fixed payment as expected discounted cashflow plus a risk premium; model the residual basis (actual minus proxy) as the retained risk, with a copula linking weather and price.
+Quantitative outputs: revenue variance reduction percentage; residual basis risk; fair fixed payment and implied premium (the cost of risk transfer); debt-service-cover-ratio distribution (P50, P90, P99) and probability of covenant breach with and without the swap; an illustrative effect on cost of debt.
+Visual outputs: revenue fan chart (P10 to P90) with and without the swap; DSCR distribution; actual-versus-proxy basis scatter; a waterfall of risk removed by source (price, weather, shape).
+Stack: Python (numpy, pandas, scipy, copulas); reuse the Section 3 generation engine.
+
+Build it (B): BESS revenue-stacking dispatch optimiser
+Objective: co-optimise battery dispatch across the GB revenue streams and quantify revenue, its volatility, and the value of duration.
+Method: Rolling-horizon linear or mixed-integer program (cvxpy or PuLP with a HiGHS or CBC solver) maximising stacked revenue subject to power, energy and state-of-charge limits, round-trip efficiency, throughput and cycle-life constraints, and non-overlapping service windows. Test perfect-foresight versus forecast versus persistence dispatch; price degradation via a throughput penalty; backtest on historical-shaped GB half-hourly prices.
+Quantitative outputs: revenue per MW per year by stream; the marginal value of duration (one hour to two to four); revenue volatility (standard deviation and CVaR) stacked versus arbitrage-only, to demonstrate the diversification effect; Balancing Mechanism skip-rate sensitivity; equivalent full cycles per year and degradation cost.
+Visual outputs: stacked monthly revenue bars by stream; representative-day dispatch (price with charge and discharge shading and state of charge); a revenue-versus-cycling efficient frontier; a duration-value curve; a tornado on price spread and skip rate.
+Stack: Python (cvxpy or PuLP, pandas); Elexon BMRS and NESO data for prices and service revenues; Plotly or a React dashboard.
+
+Build it (C): demand-side flexibility and time-of-use tariff optimiser
+Objective: design a time-of-use tariff or demand-side response programme that shifts load toward high-renewable periods, and measure the imbalance reduction and margin uplift.
+Method: Model price-responsive demand through an elasticity or utility model, or a small agent-based model of heterogeneous consumers with shiftable appliances and EVs; optimise the time-of-use price vector to minimise expected imbalance cost subject to revenue-neutrality and fairness constraints; optionally train a reinforcement-learning controller for joint battery and flexible-load scheduling.
+Quantitative outputs: imbalance volume and cost reduction percentage; load shift achieved versus the elasticity assumption; supplier margin uplift; a consumer bill-impact distribution as a fairness check.
+Visual outputs: load shape before and after shifting, overlaid on renewable availability; imbalance-cost distribution before and after; an elasticity sensitivity heatmap.
+Stack: Python (scipy.optimize, mesa for the agent-based model, or stable-baselines3 for the RL controller); a React tariff designer.
+6. The integrated hedging book
+In practice the supplier layers these instruments rather than choosing one. A base layer matches generation to demand physically and chooses PPA shapes, killing most volume and shape risk cheaply. A structural hedge (a proxy revenue swap or a shaped collar) fixes the bulk of revenue and unlocks financing. A tactical price layer adds a collar on the net open position and caps on peak top-ups. Volume optionality comes from a swing contract. Physical flexibility, a revenue-stacked battery de-risked by a toll or day-ahead swap, plus demand-side flexibility, compresses imbalance and monetises volatility. A targeted capture hedge handles cannibalisation where it dominates. The table below maps each instrument to the exposure it primarily addresses.
+Instrument / structure
+Volume
+Price
+Volatility
+Forward / baseload PPA
+·
+●
+○
+Pay-as-produced / shaped PPA
+●
+○
+·
+Sleeving / P2P matching
+●
+·
+○
+Cap (bought call)
+·
+○
+●
+Collar (cap + floor)
+·
+●
+●
+Swing option
+●
+●
+○
+Proxy revenue swap / VFA
+●
+●
+●
+Capture / quality-factor hedge
+·
+●
+○
+Battery + revenue stacking
+○
+·
+●
+Tolling / day-ahead swap
+·
+○
+●
+Time-of-use tariff / DSR
+●
+·
+○
+Legend:  ● primary lever    ○ secondary effect    · limited / not the tool
+The effect of layering is best seen in the margin distribution and in a risk attribution. Figure 4 contrasts the hedged and unhedged margin distributions: hedging compresses the spread and, more importantly, cuts the left tail where the book is short into spikes. Figure 5 attributes the reduction in 95% Value-at-Risk to each layer, showing the proxy revenue swap and PPA shape doing most of the structural work, with options and physical flexibility trimming the remainder.
+
+Figure 4. Monte-Carlo annual gross-margin distribution, hedged versus unhedged, with 95% VaR marked. Hedging compresses the distribution and removes the fat left tail. Synthetic.
+
+Figure 5. Illustrative attribution of 95% VaR reduction by hedge layer, from an unhedged book down to a small residual.
+
+Build it: portfolio Monte-Carlo risk engine (capstone)
+Objective: combine every instrument into one book, attribute risk reduction to each layer, and run stress tests. This is the natural full-stack capstone, a Python risk engine behind a React dashboard.
+Method: A joint scenario generator (weather drives copula-linked wind and solar, then demand, then price and imbalance via the Section 3 model) feeds every layered hedge per scenario: PPA shape, proxy revenue swap, collar, swing, battery dispatch from the optimiser, and demand-side flexibility. Compute the net margin distribution; attribute risk by sequentially adding layers (a Shapley-style or incremental decomposition) into a VaR and CVaR waterfall; run stress scenarios including a Dunkelflaute wind drought, a negative-price flood, a demand shock and a spike cluster.
+Quantitative outputs: VaR and CVaR before and after each layer (the waterfall); risk-adjusted margin (margin per unit of CVaR); a hedge-cost versus risk-reduction frontier; stress-test losses; correlation and contagion diagnostics.
+Visual outputs: the VaR-reduction waterfall; a P&L fan chart; a stress-scenario comparison; a cost-versus-risk efficient frontier; an interactive dashboard with sliders for hedge ratios, strikes, battery size and tariff aggressiveness, driving live risk metrics.
+Stack: Python risk engine (numpy, numba, optionally Ray or joblib for parallel Monte Carlo) exposed through an API to a Next.js and React dashboard.
+7. Peer-to-peer-specific implications
+For a peer-to-peer supplier the sequence is physical matching first, financial structuring on the residual. Because half-hourly matching already firms most of the volume and shape risk, the open position left to hedge is small, so the financial layer concentrates on three things: capture and cannibalisation risk on the generators being routed, spike protection on the thin residual still settled against cash-out, and monetising flexibility (battery, demand-side response, agile tariffs) to turn volatility into margin rather than only defending against it. That framing distinguishes a strong treatment from a generic derivatives list.
+
+Build it: peer-to-peer matching and imbalance-minimisation simulator
+Objective: reproduce the core value driver, showing how half-hourly matching and aggregation of diverse participants collapses portfolio imbalance and improves capture by decoupling from gas-indexed wholesale.
+Method: Construct a pool of heterogeneous generators (wind, solar, hydro with different correlation structure) and consumers (different load shapes). Allocate half-hourly through a linear program that minimises residual imbalance or maximises matched volume, or through a market-clearing auction. Measure net imbalance against portfolio size and diversity, and compare capture price under matching versus pure wholesale exposure.
+Quantitative outputs: net imbalance percentage against the number and diversity of participants (the aggregation curve, converging toward a low single-digit percentage); imbalance cost saved versus a benchmark supplier; capture-price uplift from decoupling; matching efficiency and unmatched volume.
+Visual outputs: an imbalance-percentage versus portfolio-size convergence curve; a generator-to-consumer bipartite matching network graph; a settlement reconciliation; capture-price comparison bars.
+Stack: Python (cvxpy, networkx, simpy for the half-hourly clearing loop); React and D3 for the network graph and the live aggregation curve.
+8. Build programme: stack, data and phasing
+8.1 Recommended stack
+Quant core: Python with numpy, pandas, scipy, statsmodels, arch (volatility), cvxpy or PuLP (optimisation), optional QuantLib (derivatives), and numba or Ray for performance.
+Visualisation and dashboards: matplotlib and Plotly for analysis; React with Next.js (recharts, visx, d3) for interactive dashboards, or Streamlit / Dash for fast internal tools.
+Data engineering: DuckDB and Parquet for half-hourly time series; a reproducible pipeline so every simulation runs off the same calibrated dataset.
+8.2 GB data sources
+Elexon BMRS / Insights: imbalance (cash-out) prices, generation by fuel type, system data.
+NESO Data Portal: balancing services, frequency response and Demand Flexibility Service data.
+Day-ahead prices: EPEX and Nord Pool auction results (some available via Elexon).
+Weather and generation: Renewables.ninja and ERA5 reanalysis for wind and solar drivers.
+Commercial benchmarks: Cornwall Insight and Modo Energy for BESS revenue and flexibility-market context, to sanity-check model outputs.
+8.3 Suggested phasing
+Exposure simulator and data pipeline (Section 3). Establishes the generation, demand and price engine every later project reuses.
+Option pricer and proxy revenue swap valuation (Sections 4 and 5A). Adds the financial-hedge layer and its risk-reduction measurement.
+BESS optimiser and demand-side flexibility (Sections 5B and 5C). Adds physical flexibility and the volatility-monetisation layer.
+Portfolio risk engine and dashboard (Section 6). The capstone that ties every layer together with attribution and stress testing.
+Peer-to-peer matching simulator (Section 7). Models the physical firming that precedes the financial book.
+8.4 Rigour notes
+Calibrate to real GB data and backtest out-of-sample; do not rely on in-sample fit.
+Unit-test each pricer against closed-form or known-limit cases (for example, a collar collapsing to a forward as the band narrows).
+Sanity-check outputs against published benchmarks (BESS revenue ranges, observed cannibalisation betas) and document every assumption.
+9. Key sources
+This report synthesises public material, including: EPEX Spot, hedging strategies for wind power generation; Baringa, volume risk, hedging and renewables; Cornwall Insight and Modo Energy on GB battery revenue stacking and the Balancing Mechanism; REsurety, Norton Rose Fulbright and DNV on proxy revenue swaps, Volume Firming Agreements and the Solar Revenue Put; Deng and Oren on electricity derivatives and structured transactions; GridBeyond on demand-side response and BSC Modification P415; Elexon and NESO for GB market mechanics; and UrbanChain, Smart Energy International and partner materials for the peer-to-peer model. Figures are illustrative outputs from simple synthetic models, included to show the target visual form rather than calibrated estimates.
