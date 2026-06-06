@@ -1,4 +1,5 @@
 import { COLUMN_ALIASES, RENEWABLE_FUELS, FOSSIL_FUELS, type DatasetMeta } from "./types.js";
+import { forwardFillInPlace } from "./stats.js";
 
 /**
  * Columnar, in-memory view of the real GB half-hourly dataset.
@@ -38,6 +39,24 @@ export class Dataset {
       if (alias) byName.set(alias, col);
     });
     return new Dataset(meta, byName);
+  }
+
+  /**
+   * Forward-fill NaN gaps in time for the given columns (default: all source columns except
+   * the time axes). Carries the last valid value forward — fills weather sampled on the hour
+   * across both half-hours, price/generation outages, etc. Mutates the underlying buffers and
+   * invalidates derived series. Leading gaps stay NaN. Returns total entries filled.
+   */
+  forwardFill(columns?: string[]): number {
+    const names = columns ?? this.meta.columns.filter((c) => c !== "datetime" && c !== "epoch_ms");
+    let total = 0;
+    const seen = new Set<Float64Array>();
+    for (const n of names) {
+      const col = this.byName.get(n);
+      if (col && !seen.has(col)) { seen.add(col); total += forwardFillInPlace(col); }
+    }
+    this.derivedCache.clear();
+    return total;
   }
 
   has(name: string): boolean {

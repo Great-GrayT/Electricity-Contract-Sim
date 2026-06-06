@@ -9,5 +9,8 @@ export async function loadDataset(): Promise<Dataset> {
   if (!metaRes.ok || !binRes.ok) throw new Error("dataset not found — run npm run extract + copy-data");
   const meta = (await metaRes.json()) as DatasetMeta;
   const buf = await binRes.arrayBuffer();
-  return Dataset.from(meta, buf);
+  const ds = Dataset.from(meta, buf);
+  const filled = ds.forwardFill(); // carry last valid value forward over NaN gaps
+  if (filled) console.info(`forward-filled ${filled.toLocaleString()} NaN entries`);
+  return ds;
 }

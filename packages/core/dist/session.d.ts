@@ -38,6 +38,8 @@ export interface ReplayConfig {
     tariffGbpMwh: number;
     ownership: Partial<Record<string, number>>;
     genOpexGbpMwh?: number;
+    /** Whether own-generation surplus is sold to the market for income (default true). If false, surplus is curtailed. */
+    exportSurplus?: boolean;
     instruments: Instrument[];
 }
 /** Snapshot emitted after each step (one bar). */
@@ -53,6 +55,9 @@ export interface StepSnapshot {
     systemLoadMwh: number;
     marketPrice: number;
     consumerPaidPrice: number;
+    effPriceBar: number;
+    marketOnlyPriceBar: number;
+    exportIncomeBar: number;
     production: Record<string, number>;
     barCoveragePct: number;
     barOffProductionPct: number;
@@ -76,6 +81,9 @@ export interface StepSnapshot {
     coveragePct: number;
     offProductionPct: number;
     runningCapture: number;
+    cumPaidWith: number;
+    cumPaidWithout: number;
+    cumExportIncome: number;
 }
 export declare class ReplaySession {
     readonly bars: Bar[];
@@ -92,8 +100,8 @@ export declare class ReplaySession {
     private readonly trailMean;
     private cum;
     private readonly marketP;
-    private readonly boughtP;
-    private readonly boughtW;
+    private readonly paidP;
+    private readonly paidW;
     constructor(ds: Dataset, config: ReplayConfig);
     get totalBars(): number;
     get done(): boolean;
@@ -102,21 +110,21 @@ export declare class ReplaySession {
     private genAt;
     /** Advance one bar; returns its snapshot, or null if the contract is finished. */
     step(): StepSnapshot | null;
-    get boughtCount(): number;
+    get paidCount(): number;
     get marketCount(): number;
     /**
      * Two price distributions over the revealed contract range, on SHARED price bins so they
      * line up on the same x-axis:
      *  - marketPct: share of market half-hours in each price bin (what the market did)
-     *  - boughtPct: share of MWh the contract actually bought in each price bin (what the
-     *    consumer's contract paid). Bought concentrates at higher prices when off-production
-     *    coincides with low renewables.
-     * Bins span the full market price range over the revealed dates, so the x-axis tracks the
-     * actual range as the replay advances.
+     *  - paidPct: share of consumed MWh at each ALL-IN effective price the consumer actually
+     *    paid (after generation, battery and every instrument). This is the price the contract
+     *    delivered, not the raw market price.
+     * Bins span the combined range of both series over the revealed dates, so the x-axis tracks
+     * the actual range as the replay advances.
      */
     priceHistograms(nbins?: number): {
         bin: number;
         marketPct: number;
-        boughtPct: number;
+        paidPct: number;
     }[];
 }

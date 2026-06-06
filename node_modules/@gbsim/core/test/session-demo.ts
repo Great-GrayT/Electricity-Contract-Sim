@@ -21,7 +21,8 @@ for (let i = 0; i < ds.rows; i++) { if (new Date(epoch[i]!).toISOString().slice(
 const cfg: ReplayConfig = {
   startIndex, lengthPeriods: 365 * 48, resolution: "day",
   loadSharePct: 10, tariffGbpMwh: 110, genOpexGbpMwh: 5,
-  ownership: { windOffshore: 0.05, windOnshore: 0.05, solar: 0.05, biomass: 0.05 },
+  ownership: { windOffshore: 0.18, windOnshore: 0.18, solar: 0.18, biomass: 0.18 },
+  exportSurplus: true,
   instruments: [
     { type: "collar", floor: 60, cap: 140 },
     { type: "cap", strike: 150 },
@@ -49,8 +50,11 @@ console.log(`sourcing mix: own gen ${f((100 * tGen) / tot, 1)}%  battery ${f((10
 console.log(`coverage ${f(last!.coveragePct, 1)}% (self-supplied)   off-production ${f(last!.offProductionPct, 1)}% of periods`);
 console.log(`generation ${f(last!.cumGenMwh / 1e3, 1)} GWh  consumer ${f(last!.cumConsumerMwh / 1e3, 1)} GWh  market-bought ${f(last!.cumShortfallMwh / 1e3, 1)} GWh`);
 console.log(`running capture £${f(last!.runningCapture)}/MWh   total margin ${m(last!.cumMargin)}`);
+console.log(`\ncost to serve load: with contract ${m(last!.cumPaidWith)}  without (spot-only) ${m(last!.cumPaidWithout)}  saving ${m(last!.cumPaidWithout - last!.cumPaidWith)}`);
+console.log(`surplus export income (separate): ${m(last!.cumExportIncome)}`);
+console.log(`all-in effective price = ${f(last!.cumPaidWith / last!.cumConsumerMwh)} £/MWh (positive — export income not netted in)`);
 const hist = s.priceHistograms(8);
-console.log(`price distributions (market vs bought), ${s.boughtCount} buys / ${s.marketCount} periods:`);
-const maxc = Math.max(...hist.map((h) => h.boughtPct));
-for (const h of hist) console.log(`  £${String(h.bin).padStart(6)}  mkt ${h.marketPct.toFixed(1).padStart(5)}%  bought ${"#".repeat(Math.round((30 * h.boughtPct) / (maxc || 1)))} ${h.boughtPct.toFixed(1)}%`);
+console.log(`price distributions (market vs all-in paid), ${s.paidCount} periods:`);
+const maxc = Math.max(...hist.map((h) => h.paidPct));
+for (const h of hist) console.log(`  £${String(h.bin).padStart(6)}  mkt ${h.marketPct.toFixed(1).padStart(5)}%  paid ${"#".repeat(Math.round((30 * h.paidPct) / (maxc || 1)))} ${h.paidPct.toFixed(1)}%`);
 console.log("\nOK: session steps + coverage/off-production + bought-price distribution verified on real data.");

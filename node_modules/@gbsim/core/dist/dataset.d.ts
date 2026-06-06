@@ -17,6 +17,13 @@ export declare class Dataset {
     private constructor();
     /** Build from extractor output: meta.json object + gb.f64 buffer (column-major float64). */
     static from(meta: DatasetMeta, buffer: ArrayBuffer): Dataset;
+    /**
+     * Forward-fill NaN gaps in time for the given columns (default: all source columns except
+     * the time axes). Carries the last valid value forward — fills weather sampled on the hour
+     * across both half-hours, price/generation outages, etc. Mutates the underlying buffers and
+     * invalidates derived series. Leading gaps stay NaN. Returns total entries filled.
+     */
+    forwardFill(columns?: string[]): number;
     has(name: string): boolean;
     /** Raw or aliased column. Throws if unknown. */
     col(name: string): Float64Array;

@@ -4,6 +4,21 @@ export function isNum(x: number): boolean {
   return x === x && Number.isFinite(x);
 }
 
+/**
+ * Forward-fill NaN/non-finite entries in place: each gap takes the last valid value
+ * before it (carry forward in time). Leading gaps (before the first valid value) are left
+ * as NaN. Returns the number of entries filled.
+ */
+export function forwardFillInPlace(a: Float64Array): number {
+  let last = NaN, filled = 0;
+  for (let i = 0; i < a.length; i++) {
+    const v = a[i]!;
+    if (isNum(v)) last = v;
+    else if (isNum(last)) { a[i] = last; filled++; }
+  }
+  return filled;
+}
+
 /** Mean over finite entries; NaN if none. */
 export function mean(a: ArrayLike<number>): number {
   let s = 0, n = 0;

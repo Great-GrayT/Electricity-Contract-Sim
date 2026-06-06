@@ -1,5 +1,11 @@
 /** NaN-aware statistics. Blanks in the real data are NaN and must be skipped, never zero-filled. */
 export declare function isNum(x: number): boolean;
+/**
+ * Forward-fill NaN/non-finite entries in place: each gap takes the last valid value
+ * before it (carry forward in time). Leading gaps (before the first valid value) are left
+ * as NaN. Returns the number of entries filled.
+ */
+export declare function forwardFillInPlace(a: Float64Array): number;
 /** Mean over finite entries; NaN if none. */
 export declare function mean(a: ArrayLike<number>): number;
 /** Sample standard deviation over finite entries. */

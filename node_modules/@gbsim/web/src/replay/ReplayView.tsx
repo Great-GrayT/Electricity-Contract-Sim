@@ -6,7 +6,7 @@ import {
 import { PriceChart, type PriceChartHandle } from "./PriceChart";
 import {
   PowerPanel, PricePaidPanel, CoveragePanel, InstrumentPanel, SourcingPanel,
-  SystemLoadPanel, ProductionStackPanel, PriceComparePanel, MarketDistPanel, BoughtDistPanel,
+  SystemLoadPanel, ProductionStackPanel, PriceComparePanel, MarketDistPanel, PaidDistPanel,
   type SnapRow, type PriceDist,
 } from "./panels";
 import { ContractBuilder } from "./ContractBuilder";
@@ -27,6 +27,7 @@ export function ReplayView({ ds }: { ds: Dataset }) {
   const [loadSharePct, setLoadSharePct] = useState(10);
   const [tariff, setTariff] = useState(110);
   const [ownershipPct, setOwnershipPct] = useState(3);
+  const [exportSurplus, setExportSurplus] = useState(true);
   const [collarOn, setCollarOn] = useState(true);
   const [floor, setFloor] = useState(60);
   const [capOn0, setCapOn] = useState(true);
@@ -98,7 +99,7 @@ export function ReplayView({ ds }: { ds: Dataset }) {
     const o = ownershipPct / 100;
     const cfg: ReplayConfig = {
       startIndex: startBar.rawStart, lengthPeriods, resolution,
-      loadSharePct, tariffGbpMwh: tariff, genOpexGbpMwh: 5,
+      loadSharePct, tariffGbpMwh: tariff, genOpexGbpMwh: 5, exportSurplus,
       ownership: { windOffshore: o, windOnshore: o, solar: o, biomass: o },
       instruments: buildInstruments(),
     };
@@ -158,13 +159,16 @@ export function ReplayView({ ds }: { ds: Dataset }) {
       srcGenMwh: round(s.srcGenMwh), srcBatteryMwh: round(s.srcBatteryMwh), srcMarketMwh: round(s.srcMarketMwh),
       batterySocMWh: round(s.batterySocMwh, 1),
       cumMarginM: round(s.cumMargin / 1e6, 3),
-      avgPricePaid: s.avgPricePaid === s.avgPricePaid ? round(s.avgPricePaid) : null,
+      effPricePaid: s.effPriceBar === s.effPriceBar ? round(s.effPriceBar) : null,
+      cumPaidWithM: round(s.cumPaidWith / 1e6, 3),
+      cumPaidWithoutM: round(s.cumPaidWithout / 1e6, 3),
       marketPrice: s.marketPrice === s.marketPrice ? round(s.marketPrice) : null,
       consumerPaid: round(s.consumerPaidPrice),
       systemLoadGW: round(s.systemLoadMwh / barHours / 1000, 2),
       barCoveragePct: round(s.barCoveragePct, 1),
       coveragePct: round(s.coveragePct, 1), offProductionPct: round(s.offProductionPct, 1),
       batteryRevK: round(s.batteryRevenue / 1e3, 1), hedgePayoffK: round((s.collarPayoff + s.capPayoff) / 1e3, 1),
+      exportIncomeK: round(s.exportIncomeBar / 1e3, 1),
     };
     // national production per fuel, GW average over the bar (for the stack)
     for (const f of PRODUCTION_FUELS) row[f] = round((s.production[f] ?? 0) / barHours / 1000, 2);
@@ -225,7 +229,9 @@ export function ReplayView({ ds }: { ds: Dataset }) {
         <div className="card full kpis">
           <Kpi n={`${num(kpi.coveragePct, 1)}%`} l="coverage" />
           <Kpi n={`${num(kpi.offProductionPct, 1)}%`} l="off-production periods" />
-          <Kpi n={`£${num(kpi.runningCapture)}`} l="running capture £/MWh" />
+          <Kpi n={`£${num(kpi.cumPaidWith / Math.max(1, kpi.cumConsumerMwh))}`} l="all-in £/MWh paid" />
+          <Kpi n={`£${num((kpi.cumPaidWithout - kpi.cumPaidWith) / 1e6, 2)}m`} l="saving vs market-only" />
+          <Kpi n={`£${num(kpi.cumExportIncome / 1e6, 2)}m`} l="surplus export income" />
           <Kpi n={`£${num(kpi.cumMargin / 1e6, 2)}m`} l="cumulative margin" />
           <Kpi n={`${num(kpi.cumShortfallMwh / 1e3, 1)} GWh`} l="total shortfall bought" />
           <Kpi n={`${kpi.barIndex + 1}/${sessionRef.current?.totalBars ?? 0}`} l="bars elapsed" />
@@ -237,7 +243,7 @@ export function ReplayView({ ds }: { ds: Dataset }) {
         <ContractBuilder
           locked={mode === "running"}
           showHint={mode !== "running" && startBarIdx != null}
-          market={{ loadSharePct, setLoadSharePct, ownershipPct, setOwnershipPct, tariff, setTariff }}
+          market={{ loadSharePct, setLoadSharePct, ownershipPct, setOwnershipPct, tariff, setTariff, exportSurplus, setExportSurplus }}
           collar={{ on: collarOn, setOn: setCollarOn, floor, setFloor, cap: collarCap, setCap: setCollarCap }}
           cap={{ on: capOn0, setOn: setCapOn, strike: capStrike, setStrike: setCapStrike }}
           battery={{ on: batteryOn, setOn: setBatteryOn, mw: batMW, setMW: setBatMW, dur: batDur, setDur: setBatDur }}
@@ -257,7 +263,7 @@ export function ReplayView({ ds }: { ds: Dataset }) {
           <PricePaidPanel data={rows} />
           <InstrumentPanel data={rows} />
           <MarketDistPanel data={hist} />
-          <BoughtDistPanel data={hist} />
+          <PaidDistPanel data={hist} />
         </div>
       )}
     </div>

@@ -39,6 +39,8 @@ export interface ReplayConfig {
   tariffGbpMwh: number;     // retail tariff charged to consumers
   ownership: Partial<Record<string, number>>; // generation contract (fraction of national fuel)
   genOpexGbpMwh?: number;
+  /** Whether own-generation surplus is sold to the market for income (default true). If false, surplus is curtailed. */
+  exportSurplus?: boolean;
   instruments: Instrument[];
 }
 
@@ -55,7 +57,10 @@ export interface StepSnapshot {
   avgPricePaid: number;         // volume-weighted price on bought energy this bar
   systemLoadMwh: number;        // total GB demand this bar (market context)
   marketPrice: number;          // mean day-ahead price this bar, £/MWh
-  consumerPaidPrice: number;    // effective price the consumer pays, £/MWh (the tariff)
+  consumerPaidPrice: number;    // retail tariff charged to the consumer, £/MWh
+  effPriceBar: number;          // cost to SERVE LOAD this bar / load, £/MWh (incl. instruments; excl. export income)
+  marketOnlyPriceBar: number;   // counterfactual: whole load bought at spot, £/MWh (load-weighted)
+  exportIncomeBar: number;      // income from selling surplus to the market this bar, £ (separate from price)
   production: Record<string, number>; // national generation by fuel this bar, MWh
   barCoveragePct: number;       // self-supplied (gen+battery) / consumer load THIS bar, capped 100
   barOffProductionPct: number;  // off-production periods / periods THIS bar
@@ -82,6 +87,9 @@ export interface StepSnapshot {
   coveragePct: number;          // covered energy / consumer energy so far
   offProductionPct: number;     // off-production periods / periods so far
   runningCapture: number;       // vol-weighted price earned by generation so far
+  cumPaidWith: number;          // cumulative £ to serve load under the contract + instruments
+  cumPaidWithout: number;       // cumulative £ if the whole load were bought at spot (no contract)
+  cumExportIncome: number;      // cumulative £ from selling surplus to the market
 }
 
 export class ReplaySession {
@@ -105,11 +113,13 @@ export class ReplaySession {
   private cum = {
     margin: 0, consumer: 0, gen: 0, shortfall: 0, off: 0, periods: 0,
     genValueNum: 0, genValueDen: 0, // for running capture
+    paidWith: 0, paidWithout: 0,    // cumulative £ to serve load, with vs without the contract
+    exportIncome: 0,                // cumulative £ from surplus sales
   };
   // price samples over the revealed range, for the distribution charts (shared bins)
-  private readonly marketP: number[] = [];   // every finite market price
-  private readonly boughtP: number[] = [];   // market price on off-production periods
-  private readonly boughtW: number[] = [];   // MWh bought at that price (the weight)
+  private readonly marketP: number[] = [];   // every finite market price (one per period)
+  private readonly paidP: number[] = [];     // ALL-IN effective price paid per period (incl. instruments)
+  private readonly paidW: number[] = [];     // load MWh weight for that effective price
 
   constructor(ds: Dataset, config: ReplayConfig) {
     this.ds = ds;
@@ -173,6 +183,7 @@ export class ReplaySession {
     let boughtNum = 0, boughtDen = 0;
     let systemLoadMwh = 0, priceSum = 0, priceN = 0, validPeriods = 0;
     let srcGen = 0, srcBat = 0, srcMkt = 0, chargedMwh = 0;
+    let barServeCost = 0, barMktOnly = 0, barExportIncome = 0; // £ this bar: serve-load cost, spot-only cost, surplus income
     const production: Record<string, number> = {};
     for (const f of PRODUCTION_FUELS) production[f] = 0;
 
@@ -222,7 +233,8 @@ export class ReplaySession {
       }
       chargedMwh += chargeSurplus + chargeBuy;
       fromMkt = short;     // remaining shortfall bought from the market
-      sell = surplusGen;   // own surplus not stored is sold
+      // surplus is sold to the market only if the contract opts to export; otherwise curtailed
+      sell = (c.exportSurplus ?? true) ? surplusGen : 0;
 
       srcGen += fromGen; srcBat += fromBat; srcMkt += fromMkt;
       surplus += sell;
@@ -237,14 +249,24 @@ export class ReplaySession {
       this.marketP.push(p);
       for (const f of PRODUCTION_FUELS) { const v = this.ds.col(f)[i]!; if (isNum(v)) production[f]! += v * dt; }
 
-      // off-production = load served from the market; price paid, MWh-weighted
-      if (fromMkt > 1e-9) { off++; boughtNum += fromMkt * p; boughtDen += fromMkt; this.boughtP.push(p); this.boughtW.push(fromMkt); }
+      // off-production = load served from the market
+      if (fromMkt > 1e-9) { off++; boughtNum += fromMkt * p; boughtDen += fromMkt; }
 
       // financial overlays hedge the actual market exposure (buys + charge buys, less sales)
       const hedgeNet = fromMkt + chargeBuy - sell;
-      if (collar) collarPayoff += hedgeNet * (p - clamp(p, collar.floor, collar.cap));
-      if (capI && hedgeNet > 0) capPayoff += hedgeNet * Math.max(p - capI.strike, 0);
-      if (this.hasProxy) proxyPayoff += this.proxyFixedPerPeriod - gv * p;
+      const cPay = collar ? hedgeNet * (p - clamp(p, collar.floor, collar.cap)) : 0;
+      const kPay = (capI && hedgeNet > 0) ? hedgeNet * Math.max(p - capI.strike, 0) : 0;
+      const xPay = this.hasProxy ? this.proxyFixedPerPeriod - gv * p : 0;
+      collarPayoff += cPay; capPayoff += kPay; proxyPayoff += xPay;
+
+      // Cost to SERVE LOAD this period (the effective price): market buys + battery charge cost +
+      // opex on internally-used generation, less instrument payouts. Surplus EXPORT income is kept
+      // separate (a contract choice), not netted into the price of electricity.
+      const serveCost = (fromMkt * p + chargeBuy * p + (gv - sell) * opex) - cPay - kPay - xPay;
+      barServeCost += serveCost;
+      barExportIncome += sell * (p - opex); // net surplus-sale income
+      barMktOnly += dem * p;                // counterfactual: buy the whole load at spot
+      if (dem > 1e-9) { this.paidP.push(serveCost / dem); this.paidW.push(dem); }
 
       // running capture (generation value)
       if (gv > 0) { this.cum.genValueNum += p * gv; this.cum.genValueDen += gv; }
@@ -260,6 +282,9 @@ export class ReplaySession {
     this.cum.shortfall += shortfall;
     this.cum.off += off;
     this.cum.periods += (b.rawEnd - b.rawStart);
+    this.cum.paidWith += barServeCost;
+    this.cum.paidWithout += barMktOnly;
+    this.cum.exportIncome += barExportIncome;
 
     const covered = this.cum.consumer - this.cum.shortfall;
     const snap: StepSnapshot = {
@@ -270,6 +295,9 @@ export class ReplaySession {
       systemLoadMwh,
       marketPrice: priceN ? priceSum / priceN : NaN,
       consumerPaidPrice: c.tariffGbpMwh,
+      effPriceBar: consumer ? barServeCost / consumer : NaN,
+      marketOnlyPriceBar: consumer ? barMktOnly / consumer : NaN,
+      exportIncomeBar: barExportIncome,
       production,
       barCoveragePct: consumer ? Math.min(100, (100 * (consumer - shortfall)) / consumer) : NaN,
       barOffProductionPct: validPeriods ? (100 * off) / validPeriods : NaN,
@@ -282,43 +310,47 @@ export class ReplaySession {
       coveragePct: this.cum.consumer ? (100 * covered) / this.cum.consumer : NaN,
       offProductionPct: this.cum.periods ? (100 * this.cum.off) / this.cum.periods : NaN,
       runningCapture: this.cum.genValueDen ? this.cum.genValueNum / this.cum.genValueDen : NaN,
+      cumPaidWith: this.cum.paidWith,
+      cumPaidWithout: this.cum.paidWithout,
+      cumExportIncome: this.cum.exportIncome,
     };
     this.bar++;
     return snap;
   }
 
-  get boughtCount(): number { return this.boughtP.length; }
+  get paidCount(): number { return this.paidP.length; }
   get marketCount(): number { return this.marketP.length; }
 
   /**
    * Two price distributions over the revealed contract range, on SHARED price bins so they
    * line up on the same x-axis:
    *  - marketPct: share of market half-hours in each price bin (what the market did)
-   *  - boughtPct: share of MWh the contract actually bought in each price bin (what the
-   *    consumer's contract paid). Bought concentrates at higher prices when off-production
-   *    coincides with low renewables.
-   * Bins span the full market price range over the revealed dates, so the x-axis tracks the
-   * actual range as the replay advances.
+   *  - paidPct: share of consumed MWh at each ALL-IN effective price the consumer actually
+   *    paid (after generation, battery and every instrument). This is the price the contract
+   *    delivered, not the raw market price.
+   * Bins span the combined range of both series over the revealed dates, so the x-axis tracks
+   * the actual range as the replay advances.
    */
-  priceHistograms(nbins = 30): { bin: number; marketPct: number; boughtPct: number }[] {
+  priceHistograms(nbins = 30): { bin: number; marketPct: number; paidPct: number }[] {
     if (!this.marketP.length) return [];
     let lo = Infinity, hi = -Infinity;
     for (const p of this.marketP) { lo = Math.min(lo, p); hi = Math.max(hi, p); }
+    for (const p of this.paidP) { lo = Math.min(lo, p); hi = Math.max(hi, p); }
     if (lo === hi) hi = lo + 1;
     const w = (hi - lo) / nbins;
     const idx = (p: number) => Math.min(nbins - 1, Math.max(0, Math.floor((p - lo) / w)));
 
     const mkt = new Array(nbins).fill(0);
     for (const p of this.marketP) mkt[idx(p)]++;
-    const bgt = new Array(nbins).fill(0);
-    let bgtTot = 0;
-    for (let k = 0; k < this.boughtP.length; k++) { bgt[idx(this.boughtP[k]!)] += this.boughtW[k]!; bgtTot += this.boughtW[k]!; }
+    const paid = new Array(nbins).fill(0);
+    let paidTot = 0;
+    for (let k = 0; k < this.paidP.length; k++) { paid[idx(this.paidP[k]!)] += this.paidW[k]!; paidTot += this.paidW[k]!; }
 
     const mktTot = this.marketP.length;
     return mkt.map((m, k) => ({
       bin: Math.round((lo + (k + 0.5) * w) * 10) / 10,
       marketPct: mktTot ? (100 * m) / mktTot : 0,
-      boughtPct: bgtTot ? (100 * bgt[k]) / bgtTot : 0,
+      paidPct: paidTot ? (100 * paid[k]) / paidTot : 0,
     }));
   }
 }

@@ -10,7 +10,7 @@ const TT = { background: "#161b22", border: "1px solid #30363d", fontSize: 12 };
 export interface BuilderProps {
   locked: boolean;
   showHint: boolean;
-  market: { loadSharePct: number; setLoadSharePct: (n: number) => void; ownershipPct: number; setOwnershipPct: (n: number) => void; tariff: number; setTariff: (n: number) => void };
+  market: { loadSharePct: number; setLoadSharePct: (n: number) => void; ownershipPct: number; setOwnershipPct: (n: number) => void; tariff: number; setTariff: (n: number) => void; exportSurplus: boolean; setExportSurplus: (b: boolean) => void };
   collar: { on: boolean; setOn: (b: boolean) => void; floor: number; setFloor: (n: number) => void; cap: number; setCap: (n: number) => void };
   cap: { on: boolean; setOn: (b: boolean) => void; strike: number; setStrike: (n: number) => void };
   battery: { on: boolean; setOn: (b: boolean) => void; mw: number; setMW: (n: number) => void; dur: number; setDur: (n: number) => void };
@@ -47,7 +47,11 @@ export function ContractBuilder(p: BuilderProps) {
           <Slider label="Consumer load (% of system)" v={p.market.loadSharePct} min={1} max={30} step={1} fmt={(x) => `${x}%`} on={p.market.setLoadSharePct} dis={dis} />
           <Slider label="Generation ownership" v={p.market.ownershipPct} min={1} max={30} step={1} fmt={(x) => `${x}% of national renewables`} on={p.market.setOwnershipPct} dis={dis} />
           <Slider label="Retail tariff" v={p.market.tariff} min={60} max={180} step={5} fmt={(x) => `£${x}/MWh`} on={p.market.setTariff} dis={dis} />
-          <p className="muted span2">Consumer load = % of real GB demand. Generation = % of real national renewables (your PPA/fleet). Each step the contract meets load cheapest-first: own generation → battery → market.</p>
+          <div className="ctrl">
+            <label>Sell surplus to market</label>
+            <button disabled={dis} onClick={() => p.market.setExportSurplus(!p.market.exportSurplus)} style={{ background: p.market.exportSurplus ? "#238636" : "#21262d", width: "100%" }}>{p.market.exportSurplus ? "ON — export for income" : "OFF — curtail surplus"}</button>
+          </div>
+          <p className="muted span2">Consumer load = % of real GB demand. Generation = % of real national renewables (your PPA/fleet). Each step the contract meets load cheapest-first: own generation → battery → market. Surplus is sold for income only if export is ON — kept separate from the price of electricity.</p>
         </div>
       )}
 
