@@ -10,30 +10,56 @@ const TT = { background: "#161b22", border: "1px solid #30363d", fontSize: 12 };
 export interface BuilderProps {
   locked: boolean;
   showHint: boolean;
-  market: { loadSharePct: number; setLoadSharePct: (n: number) => void; ownershipPct: number; setOwnershipPct: (n: number) => void; tariff: number; setTariff: (n: number) => void; exportSurplus: boolean; setExportSurplus: (b: boolean) => void };
+  generators: { ownershipPct: number; setOwnershipPct: (n: number) => void; ppaPrice: number; setPpaPrice: (n: number) => void; exportSurplus: boolean; setExportSurplus: (b: boolean) => void };
+  consumers: { loadSharePct: number; setLoadSharePct: (n: number) => void; tariff: number; setTariff: (n: number) => void };
   collar: { on: boolean; setOn: (b: boolean) => void; floor: number; setFloor: (n: number) => void; cap: number; setCap: (n: number) => void };
   cap: { on: boolean; setOn: (b: boolean) => void; strike: number; setStrike: (n: number) => void };
+  swap: { on: boolean; setOn: (b: boolean) => void; fixed: number; setFixed: (n: number) => void; blockMW: number; setBlockMW: (n: number) => void };
+  swing: { on: boolean; setOn: (b: boolean) => void; strike: number; setStrike: (n: number) => void; maxMW: number; setMaxMW: (n: number) => void };
+  quanto: { on: boolean; setOn: (b: boolean) => void; strike: number; setStrike: (n: number) => void; coverage: number; setCoverage: (n: number) => void };
+  dsr: { on: boolean; setOn: (b: boolean) => void; threshold: number; setThreshold: (n: number) => void; mw: number; setMW: (n: number) => void };
+  temp: { on: boolean; setOn: (b: boolean) => void; base: number; setBase: (n: number) => void; tick: number; setTick: (n: number) => void; mode: "HDD" | "CDD"; setMode: (m: "HDD" | "CDD") => void };
   battery: { on: boolean; setOn: (b: boolean) => void; mw: number; setMW: (n: number) => void; dur: number; setDur: (n: number) => void };
+  floor: { on: boolean; setOn: (b: boolean) => void; strike: number; setStrike: (n: number) => void };
+  cfd: { on: boolean; setOn: (b: boolean) => void; strike: number; setStrike: (n: number) => void };
+  windIndex: { on: boolean; setOn: (b: boolean) => void; strikeWind: number; setStrikeWind: (n: number) => void; tick: number; setTick: (n: number) => void };
   proxy: { on: boolean; setOn: (b: boolean) => void };
+  imbalance: { on: boolean; setOn: (b: boolean) => void };
 }
 
-type Tab = "market" | "collar" | "cap" | "battery" | "proxy";
+type Tab =
+  | "generators" | "consumers"
+  | "collar" | "cap" | "swap" | "swing" | "quanto" | "dsr" | "temp"
+  | "battery" | "floor" | "cfd" | "windIndex" | "proxy" | "imbalance";
 
 export function ContractBuilder(p: BuilderProps) {
-  const [tab, setTab] = useState<Tab>("market");
+  const [tab, setTab] = useState<Tab>("generators");
   const dis = p.locked;
 
   const tabs: { id: Tab; label: string; on?: boolean }[] = [
-    { id: "market", label: "Market" },
-    { id: "collar", label: "Collar", on: p.collar.on },
-    { id: "cap", label: "Cap", on: p.cap.on },
-    { id: "battery", label: "Battery", on: p.battery.on },
-    { id: "proxy", label: "Proxy swap", on: p.proxy.on },
+    { id: "generators", label: "⚡ Generators (PPA)" },
+    { id: "consumers", label: "🏠 Consumers (Retail)" },
+    // buy / cost side (downside: high-price & short-volume protection)
+    { id: "collar", label: "▼ Collar", on: p.collar.on },
+    { id: "cap", label: "▼ Cap", on: p.cap.on },
+    { id: "swap", label: "▼ Baseload swap", on: p.swap.on },
+    { id: "swing", label: "▼ Swing option", on: p.swing.on },
+    { id: "quanto", label: "▼ Quanto", on: p.quanto.on },
+    { id: "dsr", label: "▼ DSR", on: p.dsr.on },
+    { id: "temp", label: "▼ Weather (HDD/CDD)", on: p.temp.on },
+    // physical + generation / sell side (upside: low-price revenue protection)
+    { id: "battery", label: "↕ Battery", on: p.battery.on },
+    { id: "floor", label: "▲ Floor", on: p.floor.on },
+    { id: "cfd", label: "▲ CfD / VPPA", on: p.cfd.on },
+    { id: "windIndex", label: "▲ Wind index", on: p.windIndex.on },
+    { id: "proxy", label: "▲ Proxy swap", on: p.proxy.on },
+    // settlement realism
+    { id: "imbalance", label: "⚙ Imbalance (cash-out)", on: p.imbalance.on },
   ];
 
   return (
     <div className="card full">
-      <h2>Contract — market & instruments {dis ? <span className="muted">(locked while running)</span> : null}</h2>
+      <h2>Contracts — generators, consumers & instruments {dis ? <span className="muted">(locked while running)</span> : null}</h2>
       <div className="tabs">
         {tabs.map((t) => (
           <button key={t.id} className={`tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
@@ -42,16 +68,33 @@ export function ContractBuilder(p: BuilderProps) {
         ))}
       </div>
 
-      {tab === "market" && (
-        <div className="controls">
-          <Slider label="Consumer load (% of system)" v={p.market.loadSharePct} min={1} max={30} step={1} fmt={(x) => `${x}%`} on={p.market.setLoadSharePct} dis={dis} />
-          <Slider label="Generation ownership" v={p.market.ownershipPct} min={1} max={30} step={1} fmt={(x) => `${x}% of national renewables`} on={p.market.setOwnershipPct} dis={dis} />
-          <Slider label="Retail tariff" v={p.market.tariff} min={60} max={180} step={5} fmt={(x) => `£${x}/MWh`} on={p.market.setTariff} dis={dis} />
-          <div className="ctrl">
-            <label>Sell surplus to market</label>
-            <button disabled={dis} onClick={() => p.market.setExportSurplus(!p.market.exportSurplus)} style={{ background: p.market.exportSurplus ? "#238636" : "#21262d", width: "100%" }}>{p.market.exportSurplus ? "ON — export for income" : "OFF — curtail surplus"}</button>
+      {tab === "generators" && (
+        <div>
+          <p className="muted" style={{ marginTop: 0 }}>The <strong>buy side</strong>: a pay-as-produced PPA with renewable generators. We pay the PPA price for every MWh they produce; shortfall is topped up from the market, surplus sold or curtailed.</p>
+          <div className="builder-body">
+            <div className="controls">
+              <Slider label="Contracted volume" v={p.generators.ownershipPct} min={1} max={30} step={1} fmt={(x) => `${x}% of national renewables`} on={p.generators.setOwnershipPct} dis={dis} />
+              <Slider label="PPA price (we pay generators)" v={p.generators.ppaPrice} min={20} max={120} step={5} fmt={(x) => `£${x}/MWh`} on={p.generators.setPpaPrice} dis={dis} />
+              <div className="ctrl">
+                <label>Sell surplus to market</label>
+                <button disabled={dis} onClick={() => p.generators.setExportSurplus(!p.generators.exportSurplus)} style={{ background: p.generators.exportSurplus ? "#238636" : "#21262d", width: "100%" }}>{p.generators.exportSurplus ? "ON — export for income" : "OFF — curtail surplus"}</button>
+              </div>
+            </div>
+            <PayoffChart kind="ppa" ppa={p.generators.ppaPrice} />
           </div>
-          <p className="muted span2">Consumer load = % of real GB demand. Generation = % of real national renewables (your PPA/fleet). Each step the contract meets load cheapest-first: own generation → battery → market. Surplus is sold for income only if export is ON — kept separate from the price of electricity.</p>
+        </div>
+      )}
+
+      {tab === "consumers" && (
+        <div>
+          <p className="muted" style={{ marginTop: 0 }}>The <strong>sell side</strong>: the retail contract with consumers. They pay us the tariff for every MWh they consume; we are obliged to serve their full load.</p>
+          <div className="builder-body">
+            <div className="controls">
+              <Slider label="Consumer load" v={p.consumers.loadSharePct} min={1} max={30} step={1} fmt={(x) => `${x}% of GB demand`} on={p.consumers.setLoadSharePct} dis={dis} />
+              <Slider label="Retail tariff (consumers pay us)" v={p.consumers.tariff} min={60} max={250} step={5} fmt={(x) => `£${x}/MWh`} on={p.consumers.setTariff} dis={dis} />
+            </div>
+            <PayoffChart kind="retail" tariff={p.consumers.tariff} ppa={p.generators.ppaPrice} />
+          </div>
         </div>
       )}
 
@@ -76,6 +119,50 @@ export function ContractBuilder(p: BuilderProps) {
         </InstrumentTab>
       )}
 
+      {tab === "swap" && (
+        <InstrumentTab on={p.swap.on} setOn={p.swap.setOn} dis={dis} name="Baseload swap (fixed-for-floating)"
+          desc="Locks price on a flat block of the predictable core demand: each period settles the block at (spot − fixed), so the block effectively costs the fixed swap rate regardless of where spot lands.">
+          <div className="controls">
+            <Slider label="Fixed (swap rate)" v={p.swap.fixed} min={20} max={200} step={5} fmt={(x) => `£${x}/MWh`} on={p.swap.setFixed} dis={dis || !p.swap.on} />
+            <Slider label="Block size" v={p.swap.blockMW} min={0} max={1000} step={25} fmt={(x) => `${x} MW`} on={p.swap.setBlockMW} dis={dis || !p.swap.on} />
+          </div>
+          <PayoffChart kind="swap" fixed={p.swap.fixed} />
+        </InstrumentTab>
+      )}
+
+      {tab === "swing" && (
+        <InstrumentTab on={p.swing.on} setOn={p.swing.setOn} dis={dis} name="Swing option (volume optionality)"
+          desc="A physical right to take up to a set volume at a fixed strike. When the market is above the strike we exercise to cover the shortfall, so the bought volume is capped at the strike up to the swing limit — a dimmer switch that follows your residual shape.">
+          <div className="controls">
+            <Slider label="Strike" v={p.swing.strike} min={20} max={250} step={5} fmt={(x) => `£${x}/MWh`} on={p.swing.setStrike} dis={dis || !p.swing.on} />
+            <Slider label="Max take" v={p.swing.maxMW} min={0} max={600} step={10} fmt={(x) => `${x} MW`} on={p.swing.setMaxMW} dis={dis || !p.swing.on} />
+          </div>
+          <PayoffChart kind="swing" strike={p.swing.strike} />
+        </InstrumentTab>
+      )}
+
+      {tab === "quanto" && (
+        <InstrumentTab on={p.quanto.on} setOn={p.quanto.setOn} dis={dis} name="Quanto (price × volume correlation)"
+          desc="The targeted hedge for the renewable supplier's killer risk: it pays on the PRODUCT of shortfall volume and price excess. Payout = coverage × shortfall MWh × max(spot − strike, 0) — biggest exactly when wind is low (you're short) and prices are high at the same time.">
+          <div className="controls">
+            <Slider label="Strike" v={p.quanto.strike} min={40} max={300} step={5} fmt={(x) => `£${x}/MWh`} on={p.quanto.setStrike} dis={dis || !p.quanto.on} />
+            <Slider label="Coverage" v={p.quanto.coverage} min={0} max={100} step={5} fmt={(x) => `${x}% of short`} on={p.quanto.setCoverage} dis={dis || !p.quanto.on} />
+          </div>
+          <PayoffChart kind="cap" strike={p.quanto.strike} />
+        </InstrumentTab>
+      )}
+
+      {tab === "dsr" && (
+        <InstrumentTab on={p.dsr.on} setOn={p.dsr.setOn} dis={dis} name="Demand-side response (DSR)"
+          desc="Shed contracted demand when the market is expensive. Above the threshold price we curtail up to the DSR volume out of the shortfall, so peak demand stops being bought at punitive prices — a volume hedge on the demand side.">
+          <div className="controls">
+            <Slider label="Trigger price" v={p.dsr.threshold} min={50} max={400} step={10} fmt={(x) => `£${x}/MWh`} on={p.dsr.setThreshold} dis={dis || !p.dsr.on} />
+            <Slider label="Shed volume" v={p.dsr.mw} min={0} max={500} step={10} fmt={(x) => `${x} MW`} on={p.dsr.setMW} dis={dis || !p.dsr.on} />
+          </div>
+          <PayoffChart kind="cap" strike={p.dsr.threshold} />
+        </InstrumentTab>
+      )}
+
       {tab === "battery" && (
         <InstrumentTab on={p.battery.on} setOn={p.battery.setOn} dis={dis} name="BESS battery"
           desc="Charged when price is below the trailing reference, discharged to displace expensive market buys above it. Co-optimised with load each step.">
@@ -87,10 +174,63 @@ export function ContractBuilder(p: BuilderProps) {
         </InstrumentTab>
       )}
 
+      {tab === "floor" && (
+        <InstrumentTab on={p.floor.on} setOn={p.floor.setOn} dis={dis} name="Floor (put on price)"
+          desc="Protects the generation/sell side: guarantees a minimum sale price on exported surplus. Pays max(strike − spot, 0) on every surplus MWh sold — a backstop against the cannibalisation/low-price (and negative-price) problem when renewables run hard.">
+          <div className="controls">
+            <Slider label="Floor strike" v={p.floor.strike} min={0} max={150} step={5} fmt={(x) => `£${x}/MWh`} on={p.floor.setStrike} dis={dis || !p.floor.on} />
+          </div>
+          <PayoffChart kind="floor" strike={p.floor.strike} />
+        </InstrumentTab>
+      )}
+
+      {tab === "cfd" && (
+        <InstrumentTab on={p.cfd.on} setOn={p.cfd.setOn} dis={dis} name="CfD / VPPA on generation"
+          desc="A two-way contract for difference on own output: settles gen × (strike − spot), so the effective price captured by generation is fixed at the strike whatever the market does. Removes merchant price and cannibalisation risk on the asset side.">
+          <div className="controls">
+            <Slider label="Strike" v={p.cfd.strike} min={20} max={200} step={5} fmt={(x) => `£${x}/MWh`} on={p.cfd.setStrike} dis={dis || !p.cfd.on} />
+          </div>
+          <PayoffChart kind="proxy" />
+        </InstrumentTab>
+      )}
+
+      {tab === "windIndex" && (
+        <InstrumentTab on={p.windIndex.on} setOn={p.windIndex.setOn} dis={dis} name="Wind-index swap"
+          desc="A volume hedge that settles against the REAL weighted wind-farm wind speed (Hornsea, Dogger Bank, Walney, Whitelee… at 100 m). Pays tick × max(strike − wind speed, 0) — cash arrives in low-wind periods to offset buying replacement power, free of operational basis (it pays on the index, not your meter).">
+          <div className="controls">
+            <Slider label="Wind-speed strike" v={p.windIndex.strikeWind} min={2} max={15} step={0.5} fmt={(x) => `${x} m/s`} on={p.windIndex.setStrikeWind} dis={dis || !p.windIndex.on} />
+            <Slider label="Tick" v={p.windIndex.tick} min={0} max={10000} step={250} fmt={(x) => `£${x}/(m/s)·period`} on={p.windIndex.setTick} dis={dis || !p.windIndex.on} />
+          </div>
+          <PayoffChart kind="windIndex" strikeWind={p.windIndex.strikeWind} />
+        </InstrumentTab>
+      )}
+
+      {tab === "temp" && (
+        <InstrumentTab on={p.temp.on} setOn={p.temp.setOn} dis={dis} name="Weather derivative (HDD / CDD)"
+          desc="A demand-volume hedge settling on the REAL weighted temperature. HDD pays in cold spells (heating demand up), CDD in hot spells — degree-days × tick, so cash arrives exactly when weather drives your customers' consumption and your shortfall up.">
+          <div className="controls">
+            <div className="ctrl">
+              <label>Mode</label>
+              <button disabled={dis || !p.temp.on} onClick={() => p.temp.setMode(p.temp.mode === "HDD" ? "CDD" : "HDD")} style={{ background: "#21262d", width: "100%" }}>{p.temp.mode === "HDD" ? "HDD — pays on cold" : "CDD — pays on heat"}</button>
+            </div>
+            <Slider label="Base temperature" v={p.temp.base} min={5} max={25} step={1} fmt={(x) => `${x} °C`} on={p.temp.setBase} dis={dis || !p.temp.on} />
+            <Slider label="Tick" v={p.temp.tick} min={0} max={20000} step={500} fmt={(x) => `£${x}/°C·day`} on={p.temp.setTick} dis={dis || !p.temp.on} />
+          </div>
+          <PayoffChart kind="temp" base={p.temp.base} mode={p.temp.mode} />
+        </InstrumentTab>
+      )}
+
       {tab === "proxy" && (
         <InstrumentTab on={p.proxy.on} setOn={p.proxy.setOn} dis={dis} name="Proxy revenue swap"
           desc="Fixes the value of generation: pays the contract when price is below the fixed level, receives when above — stabilises generation revenue (bankability).">
           <PayoffChart kind="proxy" />
+        </InstrumentTab>
+      )}
+
+      {tab === "imbalance" && (
+        <InstrumentTab on={p.imbalance.on} setOn={p.imbalance.setOn} dis={dis} name="Settle residual at cash-out (imbalance)"
+          desc="Settlement realism, not a hedge. When ON, the off-production shortfall and exported surplus settle at the REAL single imbalance (cash-out) price — systemBuyPrice / systemSellPrice from Elexon — instead of day-ahead. Battery charge and every hedge still reference day-ahead, so the punitive cash-out vs day-ahead basis (the last-mile risk) shows up directly in the effective price.">
+          <p className="muted">No dials — this re-prices the unhedged residual at the real cash-out price. Watch the red ‘cash-out (imbalance)’ line vs the blue day-ahead line on the price panel.</p>
         </InstrumentTab>
       )}
 
@@ -118,12 +258,58 @@ function InstrumentTab({ on, setOn, dis, name, desc, children }: { on: boolean; 
 type PayoffProps =
   | { kind: "collar"; floor: number; cap: number }
   | { kind: "cap"; strike: number }
+  | { kind: "swap"; fixed: number }
+  | { kind: "swing"; strike: number }
+  | { kind: "floor"; strike: number }
+  | { kind: "windIndex"; strikeWind: number }
+  | { kind: "temp"; base: number; mode: "HDD" | "CDD" }
   | { kind: "battery" }
-  | { kind: "proxy" };
+  | { kind: "proxy" }
+  | { kind: "ppa"; ppa: number }
+  | { kind: "retail"; tariff: number; ppa: number };
 
 function PayoffChart(props: PayoffProps) {
   const grid: number[] = [];
   for (let x = 0; x <= 300; x += 5) grid.push(x);
+
+  if (props.kind === "ppa") {
+    // what we pay generators (flat PPA) vs the market price we'd otherwise pay
+    const data = grid.map((price) => ({ price, ppa: props.ppa, market: price }));
+    return (
+      <ChartFrame title="PPA price vs market — our buy cost (diagram)">
+        <LineChart data={data}>
+          <CartesianGrid stroke={GRID} />
+          <XAxis dataKey="price" {...AXIS} tickFormatter={(x) => `£${x}`} />
+          <YAxis {...AXIS} tickFormatter={(x) => `£${x}`} />
+          <Tooltip contentStyle={TT} formatter={(v: number, n: string) => [`£${v}/MWh`, n]} labelFormatter={(l) => `market £${l}`} />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          <ReferenceLine y={props.ppa} stroke="#2ea043" strokeDasharray="3 3" />
+          <Line dataKey="market" name="market (variable)" stroke="#6e7681" dot={false} strokeDasharray="4 3" />
+          <Line dataKey="ppa" name="PPA we pay (fixed)" stroke="#2ea043" dot={false} strokeWidth={2} />
+        </LineChart>
+      </ChartFrame>
+    );
+  }
+  if (props.kind === "retail") {
+    // the supplier margin per MWh sold: tariff (sell) minus PPA (buy), vs market
+    const data = grid.map((price) => ({ price, tariff: props.tariff, ppa: props.ppa, market: price }));
+    return (
+      <ChartFrame title="Retail tariff vs PPA & market — our sell vs buy (diagram)">
+        <LineChart data={data}>
+          <CartesianGrid stroke={GRID} />
+          <XAxis dataKey="price" {...AXIS} tickFormatter={(x) => `£${x}`} />
+          <YAxis {...AXIS} tickFormatter={(x) => `£${x}`} />
+          <Tooltip contentStyle={TT} formatter={(v: number, n: string) => [`£${v}/MWh`, n]} labelFormatter={(l) => `market £${l}`} />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          <ReferenceLine y={props.tariff} stroke="#d29922" strokeDasharray="3 3" />
+          <ReferenceLine y={props.ppa} stroke="#2ea043" strokeDasharray="3 3" />
+          <Line dataKey="market" name="market" stroke="#6e7681" dot={false} strokeDasharray="4 3" />
+          <Line dataKey="tariff" name="retail tariff (sell)" stroke="#d29922" dot={false} strokeWidth={2} />
+          <Line dataKey="ppa" name="PPA (buy)" stroke="#2ea043" dot={false} strokeWidth={2} />
+        </LineChart>
+      </ChartFrame>
+    );
+  }
 
   if (props.kind === "collar") {
     const data = grid.map((price) => ({ price, effective: clamp(price, props.floor, props.cap), unhedged: price }));
@@ -156,6 +342,95 @@ function PayoffChart(props: PayoffProps) {
           <ReferenceLine x={props.strike} stroke="#d29922" strokeDasharray="3 3" />
           <Line dataKey="payoff" name="cap payoff" stroke="#2ea043" dot={false} strokeWidth={2} />
           <Line dataKey="effective" name="effective buy price" stroke="#58a6ff" dot={false} strokeDasharray="4 3" />
+        </LineChart>
+      </ChartFrame>
+    );
+  }
+  if (props.kind === "swap") {
+    // effective cost of the swapped block is flat at the fixed rate vs variable spot
+    const data = grid.map((price) => ({ price, fixed: props.fixed, unhedged: price }));
+    return (
+      <ChartFrame title="Baseload swap — block cost vs market (diagram)">
+        <LineChart data={data}>
+          <CartesianGrid stroke={GRID} />
+          <XAxis dataKey="price" {...AXIS} tickFormatter={(x) => `£${x}`} />
+          <YAxis {...AXIS} tickFormatter={(x) => `£${x}`} />
+          <Tooltip contentStyle={TT} formatter={(v: number, n: string) => [`£${v}/MWh`, n]} labelFormatter={(l) => `market £${l}`} />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          <ReferenceLine y={props.fixed} stroke="#1f6feb" strokeDasharray="3 3" />
+          <Line dataKey="unhedged" name="unhedged (spot)" stroke="#6e7681" dot={false} strokeDasharray="4 3" />
+          <Line dataKey="fixed" name="fixed (swap rate)" stroke="#1f6feb" dot={false} strokeWidth={2} />
+        </LineChart>
+      </ChartFrame>
+    );
+  }
+  if (props.kind === "swing") {
+    // bought-volume price is capped at the strike when exercised (spot above strike)
+    const data = grid.map((price) => ({ price, effective: Math.min(price, props.strike), unhedged: price }));
+    return (
+      <ChartFrame title="Swing — effective buy price on exercised volume (diagram)">
+        <LineChart data={data}>
+          <CartesianGrid stroke={GRID} />
+          <XAxis dataKey="price" {...AXIS} tickFormatter={(x) => `£${x}`} />
+          <YAxis {...AXIS} tickFormatter={(x) => `£${x}`} />
+          <Tooltip contentStyle={TT} formatter={(v: number, n: string) => [`£${v}/MWh`, n]} labelFormatter={(l) => `market £${l}`} />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          <ReferenceLine x={props.strike} stroke="#d29922" strokeDasharray="3 3" />
+          <Line dataKey="unhedged" name="unhedged" stroke="#6e7681" dot={false} strokeDasharray="4 3" />
+          <Line dataKey="effective" name="with swing" stroke="#58a6ff" dot={false} strokeWidth={2} />
+        </LineChart>
+      </ChartFrame>
+    );
+  }
+  if (props.kind === "floor") {
+    const data = grid.map((price) => ({ price, payoff: Math.max(props.strike - price, 0), effective: Math.max(price, props.strike) }));
+    return (
+      <ChartFrame title="Floor payoff & effective sale price (diagram)">
+        <LineChart data={data}>
+          <CartesianGrid stroke={GRID} />
+          <XAxis dataKey="price" {...AXIS} tickFormatter={(x) => `£${x}`} />
+          <YAxis {...AXIS} tickFormatter={(x) => `£${x}`} />
+          <Tooltip contentStyle={TT} formatter={(v: number, n: string) => [`£${v}/MWh`, n]} labelFormatter={(l) => `market £${l}`} />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          <ReferenceLine x={props.strike} stroke="#2ea043" strokeDasharray="3 3" />
+          <Line dataKey="payoff" name="floor payoff" stroke="#2ea043" dot={false} strokeWidth={2} />
+          <Line dataKey="effective" name="effective sale price" stroke="#58a6ff" dot={false} strokeDasharray="4 3" />
+        </LineChart>
+      </ChartFrame>
+    );
+  }
+  if (props.kind === "windIndex") {
+    // payout scales with how far wind speed sits below the strike (wind-speed axis, m/s)
+    const ws: number[] = [];
+    for (let w = 0; w <= 20; w += 1) ws.push(w);
+    const data = ws.map((wind) => ({ wind, payoff: Math.max(props.strikeWind - wind, 0) }));
+    return (
+      <ChartFrame title="Wind-index swap payout vs wind speed (diagram)">
+        <LineChart data={data}>
+          <CartesianGrid stroke={GRID} />
+          <XAxis dataKey="wind" {...AXIS} tickFormatter={(x) => `${x}`} label={{ value: "wind speed (m/s)", fill: "#8b949e", fontSize: 10, position: "insideBottom", dy: 10 }} height={36} />
+          <YAxis {...AXIS} tickFormatter={(x) => `${x}`} />
+          <Tooltip contentStyle={TT} formatter={(v: number) => [`${v} × tick`, "payout"]} labelFormatter={(l) => `${l} m/s`} />
+          <ReferenceLine x={props.strikeWind} stroke="#8b949e" strokeDasharray="3 3" label={{ value: "strike", fill: "#8b949e", fontSize: 10 }} />
+          <Line dataKey="payoff" name="payout (low-wind)" stroke="#7ee787" dot={false} strokeWidth={2} />
+        </LineChart>
+      </ChartFrame>
+    );
+  }
+  if (props.kind === "temp") {
+    // degree-days vs temperature: HDD below base, CDD above
+    const ts: number[] = [];
+    for (let t = -5; t <= 35; t += 1) ts.push(t);
+    const data = ts.map((temp) => ({ temp, dd: props.mode === "HDD" ? Math.max(props.base - temp, 0) : Math.max(temp - props.base, 0) }));
+    return (
+      <ChartFrame title={`${props.mode} payout vs temperature (diagram)`}>
+        <LineChart data={data}>
+          <CartesianGrid stroke={GRID} />
+          <XAxis dataKey="temp" {...AXIS} tickFormatter={(x) => `${x}°`} label={{ value: "temperature (°C)", fill: "#8b949e", fontSize: 10, position: "insideBottom", dy: 10 }} height={36} />
+          <YAxis {...AXIS} tickFormatter={(x) => `${x}`} />
+          <Tooltip contentStyle={TT} formatter={(v: number) => [`${v} DD × tick`, "payout"]} labelFormatter={(l) => `${l} °C`} />
+          <ReferenceLine x={props.base} stroke="#8b949e" strokeDasharray="3 3" label={{ value: "base", fill: "#8b949e", fontSize: 10 }} />
+          <Line dataKey="dd" name={`${props.mode} payout`} stroke="#f0883e" dot={false} strokeWidth={2} />
         </LineChart>
       </ChartFrame>
     );

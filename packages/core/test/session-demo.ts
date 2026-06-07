@@ -20,7 +20,7 @@ for (let i = 0; i < ds.rows; i++) { if (new Date(epoch[i]!).toISOString().slice(
 
 const cfg: ReplayConfig = {
   startIndex, lengthPeriods: 365 * 48, resolution: "day",
-  loadSharePct: 10, tariffGbpMwh: 110, genOpexGbpMwh: 5,
+  loadSharePct: 10, tariffGbpMwh: 110, ppaPriceGbpMwh: 60,
   ownership: { windOffshore: 0.18, windOnshore: 0.18, solar: 0.18, biomass: 0.18 },
   exportSurplus: true,
   instruments: [
@@ -52,7 +52,12 @@ console.log(`generation ${f(last!.cumGenMwh / 1e3, 1)} GWh  consumer ${f(last!.c
 console.log(`running capture £${f(last!.runningCapture)}/MWh   total margin ${m(last!.cumMargin)}`);
 console.log(`\ncost to serve load: with contract ${m(last!.cumPaidWith)}  without (spot-only) ${m(last!.cumPaidWithout)}  saving ${m(last!.cumPaidWithout - last!.cumPaidWith)}`);
 console.log(`surplus export income (separate): ${m(last!.cumExportIncome)}`);
-console.log(`all-in effective price = ${f(last!.cumPaidWith / last!.cumConsumerMwh)} £/MWh (positive — export income not netted in)`);
+console.log(`all-in effective price = ${f(last!.cumPaidWith / last!.cumConsumerMwh)} £/MWh (cost to serve load)`);
+console.log("\n=== P&L by side (cumulative) ===");
+console.log(`  consumer side : pay us ${m(last!.cumRetailRevenue)}  @ ${f(last!.cumRetailRevenue / last!.cumConsumerMwh)} £/MWh (tariff)`);
+console.log(`  generator side: we pay ${m(last!.cumGenCost)}  @ ${f(last!.cumGenCost / last!.cumGenMwh)} £/MWh (PPA)`);
+console.log(`  market side   : net market ${m(last!.cumMarketBuyCost - last!.cumExportIncome)} (buys ${m(last!.cumMarketBuyCost)} - export ${m(last!.cumExportIncome)})`);
+console.log(`  our side      : margin ${m(last!.cumMargin)} = retail - PPA - market + export + hedges`);
 const hist = s.priceHistograms(8);
 console.log(`price distributions (market vs all-in paid), ${s.paidCount} periods:`);
 const maxc = Math.max(...hist.map((h) => h.paidPct));

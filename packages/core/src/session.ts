@@ -19,10 +19,21 @@ import { isNum, mean } from "./stats.js";
  * arbitrage revenue, proxy revenue swap on generation value.
  */
 export type Instrument =
-  | { type: "collar"; floor: number; cap: number }
-  | { type: "cap"; strike: number }
-  | { type: "battery"; spec: BatterySpec }
-  | { type: "proxySwap" };
+  // --- buy / cost side (downside: protect against high prices & short volume) ---
+  | { type: "collar"; floor: number; cap: number }     // band on the bought-volume price
+  | { type: "cap"; strike: number }                    // call on price (spike protection)
+  | { type: "swap"; fixed: number; blockMW: number }   // baseload fixed-for-floating on a flat block
+  | { type: "swing"; strike: number; maxMW: number }   // physical volume option: take up to maxMW at strike
+  | { type: "quanto"; strike: number; coverage: number } // price×volume correlation hedge on the short
+  | { type: "dsr"; threshold: number; mw: number }     // demand-side response: shed peak demand above threshold
+  | { type: "tempDeriv"; baseTemp: number; tickPerDD: number; mode: "HDD" | "CDD" } // weather (degree-day) hedge on demand volume
+  // --- sell / generation side (upside: protect generation revenue against low/negative prices) ---
+  | { type: "floor"; strike: number }                  // put on price for exported surplus
+  | { type: "cfd"; strike: number }                    // VPPA / CfD: fix effective price on own generation
+  | { type: "windIndex"; strikeWind: number; tickPerUnit: number } // wind-index swap: pays per m/s below a wind-speed strike
+  | { type: "proxySwap" }                              // proxy revenue swap on generation value
+  // --- physical flexibility ---
+  | { type: "battery"; spec: BatterySpec };            // BESS dispatched against load each step
 
 /** National generation fuels for the production stack, ordered renewables -> nuclear -> fossils. */
 export const PRODUCTION_FUELS = [
@@ -35,12 +46,16 @@ export interface ReplayConfig {
   startIndex: number;       // raw period index where the contract starts
   lengthPeriods: number;    // contract length in raw half-hourly periods
   resolution: Resolution;   // stepping/chart resolution
-  loadSharePct: number;     // consumer load as % of system load
-  tariffGbpMwh: number;     // retail tariff charged to consumers
-  ownership: Partial<Record<string, number>>; // generation contract (fraction of national fuel)
-  genOpexGbpMwh?: number;
-  /** Whether own-generation surplus is sold to the market for income (default true). If false, surplus is curtailed. */
+  loadSharePct: number;     // consumer load as % of system load (the retail contract volume)
+  tariffGbpMwh: number;     // retail tariff: price the CONSUMER pays us, £/MWh
+  ownership: Partial<Record<string, number>>; // PPA contract: fraction of national renewable output we offtake
+  ppaPriceGbpMwh: number;   // PPA price: price we pay the GENERATOR per MWh contracted, £/MWh (pay-as-produced)
+  /** Whether PPA surplus is sold to the market for income (default true). If false, surplus is curtailed (we still pay the PPA). */
   exportSurplus?: boolean;
+  /** If true, the residual (off-production shortfall / surplus) settles at the REAL single
+   * imbalance/cash-out price (systemBuyPrice / systemSellPrice) instead of day-ahead — the
+   * punitive last-mile price. Hedges still reference day-ahead, so cash-out vs DA basis emerges. */
+  imbalanceSettlement?: boolean;
   instruments: Instrument[];
 }
 
@@ -57,10 +72,18 @@ export interface StepSnapshot {
   avgPricePaid: number;         // volume-weighted price on bought energy this bar
   systemLoadMwh: number;        // total GB demand this bar (market context)
   marketPrice: number;          // mean day-ahead price this bar, £/MWh
+  imbalancePrice: number;       // mean real cash-out (system buy) price this bar, £/MWh (NaN if unavailable)
   consumerPaidPrice: number;    // retail tariff charged to the consumer, £/MWh
   effPriceBar: number;          // cost to SERVE LOAD this bar / load, £/MWh (incl. instruments; excl. export income)
   marketOnlyPriceBar: number;   // counterfactual: whole load bought at spot, £/MWh (load-weighted)
+  // cost-to-serve breakdown this bar (£): serveCost = mktShortfallCost + chargeCost + ppaServeCost − collar − cap − proxy
+  serveCostBar: number;
+  mktShortfallCostBar: number;  // fromMkt·p
+  chargeCostBar: number;        // chargeBuy·p
+  ppaServeCostBar: number;      // (gv−sell)·ppa
   exportIncomeBar: number;      // income from selling surplus to the market this bar, £ (separate from price)
+  ppaPriceBar: number;          // £/MWh we pay generators (PPA) this bar
+  ourBuyPriceBar: number;       // weighted-avg £/MWh we actually paid to source this bar (PPA + market)
   production: Record<string, number>; // national generation by fuel this bar, MWh
   barCoveragePct: number;       // self-supplied (gen+battery) / consumer load THIS bar, capped 100
   barOffProductionPct: number;  // off-production periods / periods THIS bar
@@ -77,6 +100,8 @@ export interface StepSnapshot {
   capPayoff: number;
   batteryRevenue: number;
   proxyPayoff: number;
+  structHedgePayoff: number;  // buy-side structured overlays this bar (swap + swing + quanto + dsr), £ — reduces cost-to-serve
+  genHedgePayoff: number;     // generation-side overlays this bar (floor + cfd + windIndex), £ — revenue stabiliser
   stepMargin: number;
   // cumulative
   cumMargin: number;
@@ -90,6 +115,10 @@ export interface StepSnapshot {
   cumPaidWith: number;          // cumulative £ to serve load under the contract + instruments
   cumPaidWithout: number;       // cumulative £ if the whole load were bought at spot (no contract)
   cumExportIncome: number;      // cumulative £ from selling surplus to the market
+  // P&L by side
+  cumRetailRevenue: number;     // £ received from consumers (sell side)
+  cumGenCost: number;           // £ paid to generators (PPA, buy side)
+  cumMarketBuyCost: number;     // £ paid to the market (shortfall + battery charge)
 }
 
 export class ReplaySession {
@@ -101,6 +130,9 @@ export class ReplaySession {
   // proxy swap
   private readonly proxyFixedPerPeriod: number;
   private readonly hasProxy: boolean;
+  // generation-index swap: baseline output per period (mean own generation over the window, from real data)
+  private readonly genBaselinePerPeriod: number;
+  private readonly hasWindIndex: boolean;
   // load-coupled battery controller state
   private readonly hasBattery: boolean;
   private readonly batPowerMW: number;
@@ -115,6 +147,7 @@ export class ReplaySession {
     genValueNum: 0, genValueDen: 0, // for running capture
     paidWith: 0, paidWithout: 0,    // cumulative £ to serve load, with vs without the contract
     exportIncome: 0,                // cumulative £ from surplus sales
+    retailRev: 0, genCost: 0, marketBuy: 0, // P&L by side: from consumers / to generators / to market
   };
   // price samples over the revealed range, for the distribution charts (shared bins)
   private readonly marketP: number[] = [];   // every finite market price (one per period)
@@ -136,19 +169,25 @@ export class ReplaySession {
     // causal trailing-mean price (last day) — the real-time reference for charge/discharge
     this.trailMean = causalTrailingMean(ds.col("daPrice"), 48);
 
-    // proxy swap fixed leg = expected generation value over the window
+    // proxy swap fixed leg = expected generation value over the window; gen-index baseline = expected output.
+    // Both are computed from the REAL price/generation series over the contract window (no synthesised data).
     this.hasProxy = config.instruments.some((i) => i.type === "proxySwap");
-    if (this.hasProxy) {
+    this.hasWindIndex = config.instruments.some((i) => i.type === "windIndex");
+    if (this.hasProxy || this.hasWindIndex) {
       const price = ds.col("daPrice");
       const end = Math.min(config.startIndex + config.lengthPeriods, ds.rows);
       const gv: number[] = [];
+      const gOnly: number[] = [];
       for (let i = config.startIndex; i < end; i++) {
         const g = this.genAt(i), p = price[i]!;
+        if (isNum(g)) gOnly.push(g);
         if (isNum(g) && isNum(p)) gv.push(g * p);
       }
       this.proxyFixedPerPeriod = gv.length ? mean(Float64Array.from(gv)) : 0;
+      this.genBaselinePerPeriod = gOnly.length ? mean(Float64Array.from(gOnly)) : 0;
     } else {
       this.proxyFixedPerPeriod = 0;
+      this.genBaselinePerPeriod = 0;
     }
   }
 
@@ -174,16 +213,34 @@ export class ReplaySession {
     const c = this.config;
     const price = this.ds.col("daPrice");
     const load = this.ds.col("load");
-    const opex = c.genOpexGbpMwh ?? 0;
+    const ppa = c.ppaPriceGbpMwh ?? 0; // price we pay generators per MWh of contracted output (pay-as-produced)
     const collar = c.instruments.find((i) => i.type === "collar") as Extract<Instrument, { type: "collar" }> | undefined;
     const capI = c.instruments.find((i) => i.type === "cap") as Extract<Instrument, { type: "cap" }> | undefined;
+    const swapI = c.instruments.find((i) => i.type === "swap") as Extract<Instrument, { type: "swap" }> | undefined;
+    const swingI = c.instruments.find((i) => i.type === "swing") as Extract<Instrument, { type: "swing" }> | undefined;
+    const quantoI = c.instruments.find((i) => i.type === "quanto") as Extract<Instrument, { type: "quanto" }> | undefined;
+    const dsrI = c.instruments.find((i) => i.type === "dsr") as Extract<Instrument, { type: "dsr" }> | undefined;
+    const floorI = c.instruments.find((i) => i.type === "floor") as Extract<Instrument, { type: "floor" }> | undefined;
+    const cfdI = c.instruments.find((i) => i.type === "cfd") as Extract<Instrument, { type: "cfd" }> | undefined;
+    const windI = c.instruments.find((i) => i.type === "windIndex") as Extract<Instrument, { type: "windIndex" }> | undefined;
+    const tempI = c.instruments.find((i) => i.type === "tempDeriv") as Extract<Instrument, { type: "tempDeriv" }> | undefined;
+
+    // real merged series (NaN-safe; fall back to day-ahead / skip where a column is absent)
+    const imbBuy = this.ds.has("imbalanceBuy") ? this.ds.col("imbalanceBuy") : null;
+    const imbSell = this.ds.has("imbalanceSell") ? this.ds.col("imbalanceSell") : null;
+    const windSpeed = this.ds.has("wtdWind") ? this.ds.col("wtdWind") : null;
+    const airTemp = this.ds.has("wtdTemp") ? this.ds.col("wtdTemp") : null;
+    const useImb = !!c.imbalanceSettlement && !!imbBuy && !!imbSell;
 
     let consumer = 0, gen = 0, surplus = 0, off = 0;
     let retail = 0, energyCost = 0, collarPayoff = 0, capPayoff = 0, batteryRevenue = 0, proxyPayoff = 0;
+    let structHedgePayoff = 0, genHedgePayoff = 0;
     let boughtNum = 0, boughtDen = 0;
-    let systemLoadMwh = 0, priceSum = 0, priceN = 0, validPeriods = 0;
+    let systemLoadMwh = 0, priceSum = 0, priceN = 0, validPeriods = 0, imbSum = 0, imbN = 0;
     let srcGen = 0, srcBat = 0, srcMkt = 0, chargedMwh = 0;
     let barServeCost = 0, barMktOnly = 0, barExportIncome = 0; // £ this bar: serve-load cost, spot-only cost, surplus income
+    let barGenCost = 0, barMarketBuy = 0, barChargeBuyMwh = 0; // £ to generators (PPA), £ to market, market-charge MWh
+    let barMktShortfall = 0, barChargeCost = 0, barPpaServe = 0; // serve-cost breakdown terms
     const production: Record<string, number> = {};
     for (const f of PRODUCTION_FUELS) production[f] = 0;
 
@@ -239,8 +296,18 @@ export class ReplaySession {
       srcGen += fromGen; srcBat += fromBat; srcMkt += fromMkt;
       surplus += sell;
 
-      // physical energy cost at spot (charge buys add cost; sales credit)
-      energyCost += fromMkt * p + chargeBuy * p - sell * p + gv * opex;
+      // settlement price for the residual: cash-out (imbalance) when enabled & available, else day-ahead.
+      // Battery charge and all hedges still settle at day-ahead, so a DA↔cash-out basis appears on the residual.
+      const ib = useImb && isNum(imbBuy![i]!) ? imbBuy![i]! : p;
+      const is = useImb && isNum(imbSell![i]!) ? imbSell![i]! : p;
+      if (useImb && isNum(imbBuy![i]!)) { imbSum += imbBuy![i]!; imbN++; }
+
+      // our procurement: pay the generator the PPA price for ALL contracted output (pay-as-produced),
+      // buy any shortfall + battery charge from the market, credit surplus sales.
+      energyCost += fromMkt * ib + chargeBuy * p - sell * is + gv * ppa;
+      barGenCost += gv * ppa;                 // £ to generators
+      barMarketBuy += fromMkt * ib + chargeBuy * p; // £ to market
+      barChargeBuyMwh += chargeBuy;
       batteryRevenue += fromBat * p - chargeBuy * p; // value the battery added vs buying/charging at spot
 
       // market context
@@ -249,8 +316,8 @@ export class ReplaySession {
       this.marketP.push(p);
       for (const f of PRODUCTION_FUELS) { const v = this.ds.col(f)[i]!; if (isNum(v)) production[f]! += v * dt; }
 
-      // off-production = load served from the market
-      if (fromMkt > 1e-9) { off++; boughtNum += fromMkt * p; boughtDen += fromMkt; }
+      // off-production = load served from the market (priced at the residual settlement price)
+      if (fromMkt > 1e-9) { off++; boughtNum += fromMkt * ib; boughtDen += fromMkt; }
 
       // financial overlays hedge the actual market exposure (buys + charge buys, less sales)
       const hedgeNet = fromMkt + chargeBuy - sell;
@@ -259,13 +326,37 @@ export class ReplaySession {
       const xPay = this.hasProxy ? this.proxyFixedPerPeriod - gv * p : 0;
       collarPayoff += cPay; capPayoff += kPay; proxyPayoff += xPay;
 
+      // --- buy-side structured overlays (settle on the realised short exposure) ---
+      const swPay = swapI ? (swapI.blockMW * dt) * (p - swapI.fixed) : 0;                                  // baseload swap: gain when spot > fixed
+      const sgPay = swingI ? Math.min(fromMkt, swingI.maxMW * dt) * Math.max(p - swingI.strike, 0) : 0;    // physical swing caps the short at strike
+      const qPay  = quantoI ? quantoI.coverage * fromMkt * Math.max(p - quantoI.strike, 0) : 0;            // short MWh × price excess (the covariance)
+      const dPay  = dsrI ? Math.min(fromMkt, dsrI.mw * dt) * Math.max(p - dsrI.threshold, 0) : 0;          // shed peak demand priced above threshold
+      // degree-day (weather) hedge on demand volume — settles on the REAL weighted temperature.
+      // HDD pays in cold spells, CDD in hot; per-period degree-days = DD(day) × dt/24.
+      let tdPay = 0;
+      if (tempI && airTemp && isNum(airTemp[i]!)) {
+        const dd = tempI.mode === "HDD" ? Math.max(tempI.baseTemp - airTemp[i]!, 0) : Math.max(airTemp[i]! - tempI.baseTemp, 0);
+        tdPay = tempI.tickPerDD * dd * (dt / 24);
+      }
+      const structPay = swPay + sgPay + qPay + dPay + tdPay;
+      // --- generation-side overlays (stabilise revenue on own output / surplus) ---
+      const fPay = floorI ? sell * Math.max(floorI.strike - p, 0) : 0;                                     // put on exported surplus
+      const cfdPay = cfdI ? gv * (cfdI.strike - p) : 0;                                                    // two-way CfD/VPPA on own generation
+      // wind-index swap settles on the REAL weighted wind-farm wind speed: pays per m/s below the strike.
+      const wiPay = (windI && windSpeed && isNum(windSpeed[i]!)) ? windI.tickPerUnit * Math.max(windI.strikeWind - windSpeed[i]!, 0) : 0;
+      const genPay = fPay + cfdPay + wiPay;
+      structHedgePayoff += structPay; genHedgePayoff += genPay;
+
       // Cost to SERVE LOAD this period (the effective price): market buys + battery charge cost +
-      // opex on internally-used generation, less instrument payouts. Surplus EXPORT income is kept
-      // separate (a contract choice), not netted into the price of electricity.
-      const serveCost = (fromMkt * p + chargeBuy * p + (gv - sell) * opex) - cPay - kPay - xPay;
+      // PPA cost of the generation used internally, less instrument payouts. Surplus EXPORT income
+      // (sold at market, bought at PPA) is kept separate, not netted into the price of electricity.
+      const serveCost = (fromMkt * ib + chargeBuy * p + (gv - sell) * ppa) - cPay - kPay - xPay - structPay;
       barServeCost += serveCost;
-      barExportIncome += sell * (p - opex); // net surplus-sale income
-      barMktOnly += dem * p;                // counterfactual: buy the whole load at spot
+      barMktShortfall += fromMkt * ib;
+      barChargeCost += chargeBuy * p;
+      barPpaServe += (gv - sell) * ppa;
+      barExportIncome += sell * (is - ppa); // surplus sold at the residual price, acquired at PPA
+      barMktOnly += dem * p;               // counterfactual: buy the whole load at spot (day-ahead)
       if (dem > 1e-9) { this.paidP.push(serveCost / dem); this.paidW.push(dem); }
 
       // running capture (generation value)
@@ -274,7 +365,7 @@ export class ReplaySession {
     const shortfall = srcMkt; // load not self-supplied
 
     // battery value is already inside energyCost (it reduced market buys); batteryRevenue is reporting-only.
-    const stepMargin = retail - energyCost + collarPayoff + capPayoff + proxyPayoff;
+    const stepMargin = retail - energyCost + collarPayoff + capPayoff + proxyPayoff + structHedgePayoff + genHedgePayoff;
 
     this.cum.margin += stepMargin;
     this.cum.consumer += consumer;
@@ -285,6 +376,9 @@ export class ReplaySession {
     this.cum.paidWith += barServeCost;
     this.cum.paidWithout += barMktOnly;
     this.cum.exportIncome += barExportIncome;
+    this.cum.retailRev += retail;
+    this.cum.genCost += barGenCost;
+    this.cum.marketBuy += barMarketBuy;
 
     const covered = this.cum.consumer - this.cum.shortfall;
     const snap: StepSnapshot = {
@@ -294,16 +388,24 @@ export class ReplaySession {
       avgPricePaid: boughtDen ? boughtNum / boughtDen : NaN,
       systemLoadMwh,
       marketPrice: priceN ? priceSum / priceN : NaN,
+      imbalancePrice: imbN ? imbSum / imbN : NaN,
       consumerPaidPrice: c.tariffGbpMwh,
       effPriceBar: consumer ? barServeCost / consumer : NaN,
       marketOnlyPriceBar: consumer ? barMktOnly / consumer : NaN,
+      serveCostBar: barServeCost,
+      mktShortfallCostBar: barMktShortfall,
+      chargeCostBar: barChargeCost,
+      ppaServeCostBar: barPpaServe,
       exportIncomeBar: barExportIncome,
+      ppaPriceBar: c.ppaPriceGbpMwh,
+      ourBuyPriceBar: (gen + srcMkt + barChargeBuyMwh) > 1e-9 ? (barGenCost + barMarketBuy) / (gen + srcMkt + barChargeBuyMwh) : NaN,
       production,
       barCoveragePct: consumer ? Math.min(100, (100 * (consumer - shortfall)) / consumer) : NaN,
       barOffProductionPct: validPeriods ? (100 * off) / validPeriods : NaN,
       srcGenMwh: srcGen, srcBatteryMwh: srcBat, srcMarketMwh: srcMkt,
       batterySocMwh: this.batSoc, chargedMwh,
-      retail, energyCost, collarPayoff, capPayoff, batteryRevenue, proxyPayoff, stepMargin,
+      retail, energyCost, collarPayoff, capPayoff, batteryRevenue, proxyPayoff,
+      structHedgePayoff, genHedgePayoff, stepMargin,
       cumMargin: this.cum.margin,
       cumConsumerMwh: this.cum.consumer, cumGenMwh: this.cum.gen, cumShortfallMwh: this.cum.shortfall,
       cumOffProductionPeriods: this.cum.off,
@@ -313,6 +415,9 @@ export class ReplaySession {
       cumPaidWith: this.cum.paidWith,
       cumPaidWithout: this.cum.paidWithout,
       cumExportIncome: this.cum.exportIncome,
+      cumRetailRevenue: this.cum.retailRev,
+      cumGenCost: this.cum.genCost,
+      cumMarketBuyCost: this.cum.marketBuy,
     };
     this.bar++;
     return snap;

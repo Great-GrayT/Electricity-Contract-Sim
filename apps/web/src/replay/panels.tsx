@@ -1,6 +1,7 @@
+import { useState } from "react";
 import {
   ResponsiveContainer, ComposedChart, LineChart, BarChart, AreaChart,
-  Line, Area, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
+  Line, Area, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, ReferenceLine,
 } from "recharts";
 
 const AXIS = { stroke: "#8b949e", fontSize: 10 };
@@ -39,7 +40,24 @@ export interface SnapRow {
   cumPaidWithM: number;          // £m cumulative, with contract
   cumPaidWithoutM: number;       // £m cumulative, spot-only (no contract)
   marketPrice: number | null;
+  imbalancePrice: number | null;   // real cash-out (system buy) price, £/MWh
   consumerPaid: number;
+  ppaPrice: number;              // £/MWh we pay generators
+  ourBuyPrice: number | null;    // weighted-avg £/MWh we paid to source this bar
+  cumRetailM: number;            // £m from consumers
+  cumGenCostM: number;           // £m to generators (PPA)
+  cumMarketNetM: number;         // £m net to market (buys - export)
+  // cost-to-serve breakdown this bar, £k (collar/cap/proxy shown as negative = cost reducers)
+  serveCostK: number;
+  mktShortfallK: number;
+  chargeCostK: number;
+  ppaServeK: number;
+  collarReduceK: number;
+  capReduceK: number;
+  proxyReduceK: number;
+  structReduceK: number;   // buy-side structured overlays (swap+swing+quanto+dsr), £k, cost reducer (negated)
+  structPayK: number;      // same overlays as a positive payoff, £k
+  genHedgeK: number;       // generation-side overlays (floor+cfd+windIndex), £k revenue stabiliser
   systemLoadGW: number;
   barCoveragePct: number;    // instantaneous (this bar)
   coveragePct: number;       // cumulative
@@ -88,9 +106,15 @@ export function ProductionStackPanel({ data }: { data: SnapRow[] }) {
 }
 
 export function PriceComparePanel({ data }: { data: SnapRow[] }) {
+  const [showBreakdown, setShowBreakdown] = useState(false);
   return (
     <div className="card">
-      <h2>Market price vs consumer paid <span className="tag real">real</span></h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h2 style={{ margin: 0 }}>Market price vs consumer paid <span className="tag real">real</span></h2>
+        <button onClick={() => setShowBreakdown((s) => !s)} style={{ background: showBreakdown ? "#1f6feb" : "#21262d", padding: "4px 10px", fontSize: 12 }}>
+          {showBreakdown ? "× hide cost breakdown" : "⊞ cost-to-serve breakdown"}
+        </button>
+      </div>
       <ResponsiveContainer width="100%" height={170}>
         <LineChart data={data} syncId={SYNC}>
           <CartesianGrid stroke={GRID} />
@@ -99,9 +123,38 @@ export function PriceComparePanel({ data }: { data: SnapRow[] }) {
           <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [v == null ? "—" : `£${v}/MWh`, n]} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
           <Line dataKey="marketPrice" name="market (day-ahead)" stroke="#58a6ff" dot={false} />
+          <Line dataKey="imbalancePrice" name="cash-out (imbalance)" stroke="#f85149" dot={false} strokeDasharray="2 2" />
           <Line dataKey="effPricePaid" name="effective price paid (all-in)" stroke="#7ee787" dot={false} strokeWidth={2} />
           <Line dataKey="consumerPaid" name="retail tariff" stroke="#d29922" dot={false} strokeDasharray="4 3" />
         </LineChart>
+      </ResponsiveContainer>
+      {showBreakdown && <CostBreakdown data={data} />}
+    </div>
+  );
+}
+
+/** Stacked decomposition of the per-bar cost to serve load (£k): costs up, hedge payouts down. */
+function CostBreakdown({ data }: { data: SnapRow[] }) {
+  return (
+    <div style={{ marginTop: 12, borderTop: "1px solid #21262d", paddingTop: 10 }}>
+      <div className="muted" style={{ marginBottom: 4 }}>Cost-to-serve breakdown per bar (£k) — costs above zero, hedge payouts below (they reduce cost); net = line</div>
+      <ResponsiveContainer width="100%" height={210}>
+        <ComposedChart data={data} syncId={SYNC} stackOffset="sign">
+          <CartesianGrid stroke={GRID} />
+          <XAxis dataKey="date" {...AXIS} minTickGap={40} />
+          <YAxis {...AXIS} label={{ value: "£k/bar", angle: -90, fill: "#8b949e", fontSize: 10 }} />
+          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}k`, n]} />
+          <Legend wrapperStyle={{ fontSize: 10 }} />
+          <ReferenceLine y={0} stroke="#8b949e" />
+          <Bar dataKey="ppaServeK" name="PPA cost (own gen kept)" stackId="c" fill="#2ea043" />
+          <Bar dataKey="mktShortfallK" name="market shortfall" stackId="c" fill="#f85149" />
+          <Bar dataKey="chargeCostK" name="battery charge" stackId="c" fill="#58a6ff" />
+          <Bar dataKey="collarReduceK" name="− collar payout" stackId="c" fill="#d2a8ff" />
+          <Bar dataKey="capReduceK" name="− cap payout" stackId="c" fill="#a371f7" />
+          <Bar dataKey="structReduceK" name="− swap/swing/quanto/DSR" stackId="c" fill="#1f6feb" />
+          <Bar dataKey="proxyReduceK" name="− proxy payout" stackId="c" fill="#56d4dd" />
+          <Line dataKey="serveCostK" name="net serve cost" stroke="#e6edf3" dot={false} strokeWidth={2} />
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
@@ -126,6 +179,49 @@ export function SourcingPanel({ data }: { data: SnapRow[] }) {
         </ComposedChart>
       </ResponsiveContainer>
       <p className="muted">Each bar: load met cheapest-first — own generation, then battery (charged cheap / discharged dear), then market.</p>
+    </div>
+  );
+}
+
+export function PriceStackPanel({ data }: { data: SnapRow[] }) {
+  return (
+    <div className="card">
+      <h2>Price stack: generator → us → consumer <span className="tag real">real</span></h2>
+      <ResponsiveContainer width="100%" height={185}>
+        <LineChart data={data} syncId={SYNC}>
+          <CartesianGrid stroke={GRID} />
+          <XAxis dataKey="date" {...AXIS} minTickGap={40} />
+          <YAxis {...AXIS} label={{ value: "£/MWh", angle: -90, fill: "#8b949e", fontSize: 10 }} />
+          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [v == null ? "—" : `£${v}/MWh`, n]} />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Line dataKey="consumerPaid" name="consumer pays us (tariff)" stroke="#d29922" dot={false} strokeWidth={2} />
+          <Line dataKey="marketPrice" name="market (day-ahead)" stroke="#58a6ff" dot={false} />
+          <Line dataKey="ppaPrice" name="we pay generators (PPA)" stroke="#2ea043" dot={false} strokeDasharray="4 3" />
+        </LineChart>
+      </ResponsiveContainer>
+      <p className="muted">Consumer tariff (sell) at top, market in the middle, PPA (buy) at the bottom.</p>
+    </div>
+  );
+}
+
+export function PnlBySidePanel({ data }: { data: SnapRow[] }) {
+  return (
+    <div className="card">
+      <h2>Cumulative P&L by side <span className="tag real">real</span></h2>
+      <ResponsiveContainer width="100%" height={185}>
+        <LineChart data={data} syncId={SYNC}>
+          <CartesianGrid stroke={GRID} />
+          <XAxis dataKey="date" {...AXIS} minTickGap={40} />
+          <YAxis {...AXIS} label={{ value: "£m", angle: -90, fill: "#8b949e", fontSize: 10 }} />
+          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}m`, n]} />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Line dataKey="cumRetailM" name="consumers → us (revenue)" stroke="#d29922" dot={false} strokeWidth={2} />
+          <Line dataKey="cumGenCostM" name="us → generators (PPA)" stroke="#2ea043" dot={false} />
+          <Line dataKey="cumMarketNetM" name="us ↔ market (net)" stroke="#58a6ff" dot={false} />
+          <Line dataKey="cumMarginM" name="our margin" stroke="#7ee787" dot={false} strokeWidth={2} />
+        </LineChart>
+      </ResponsiveContainer>
+      <p className="muted">Money flow: consumers pay us, we pay generators (PPA) and the market (net of exports); what's left is our margin.</p>
     </div>
   );
 }
@@ -206,6 +302,8 @@ export function InstrumentPanel({ data }: { data: SnapRow[] }) {
           <Legend wrapperStyle={{ fontSize: 11 }} />
           <Bar dataKey="batteryRevK" name="BESS £k" fill="#2ea043" />
           <Line dataKey="hedgePayoffK" name="collar+cap £k" stroke="#d2a8ff" dot={false} />
+          <Line dataKey="structPayK" name="buy-side structured £k" stroke="#1f6feb" dot={false} />
+          <Line dataKey="genHedgeK" name="gen-side (floor/CfD/wind) £k" stroke="#7ee787" dot={false} />
           <Line dataKey="exportIncomeK" name="surplus export £k" stroke="#56d4dd" dot={false} />
         </ComposedChart>
       </ResponsiveContainer>

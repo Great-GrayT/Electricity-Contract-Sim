@@ -7,6 +7,7 @@ import { PriceChart, type PriceChartHandle } from "./PriceChart";
 import {
   PowerPanel, PricePaidPanel, CoveragePanel, InstrumentPanel, SourcingPanel,
   SystemLoadPanel, ProductionStackPanel, PriceComparePanel, MarketDistPanel, PaidDistPanel,
+  PriceStackPanel, PnlBySidePanel,
   type SnapRow, type PriceDist,
 } from "./panels";
 import { ContractBuilder } from "./ContractBuilder";
@@ -27,6 +28,7 @@ export function ReplayView({ ds }: { ds: Dataset }) {
   const [loadSharePct, setLoadSharePct] = useState(10);
   const [tariff, setTariff] = useState(110);
   const [ownershipPct, setOwnershipPct] = useState(3);
+  const [ppaPrice, setPpaPrice] = useState(60);
   const [exportSurplus, setExportSurplus] = useState(true);
   const [collarOn, setCollarOn] = useState(true);
   const [floor, setFloor] = useState(60);
@@ -37,6 +39,33 @@ export function ReplayView({ ds }: { ds: Dataset }) {
   const [batMW, setBatMW] = useState(50);
   const [batDur, setBatDur] = useState(2);
   const [proxyOn, setProxyOn] = useState(false);
+  // additional structured instruments — buy side
+  const [swapOn, setSwapOn] = useState(false);
+  const [swapFixed, setSwapFixed] = useState(80);
+  const [swapBlockMW, setSwapBlockMW] = useState(200);
+  const [swingOn, setSwingOn] = useState(false);
+  const [swingStrike, setSwingStrike] = useState(90);
+  const [swingMW, setSwingMW] = useState(150);
+  const [quantoOn, setQuantoOn] = useState(false);
+  const [quantoStrike, setQuantoStrike] = useState(120);
+  const [quantoCov, setQuantoCov] = useState(80);
+  const [dsrOn, setDsrOn] = useState(false);
+  const [dsrThreshold, setDsrThreshold] = useState(150);
+  const [dsrMW, setDsrMW] = useState(100);
+  const [tempOn, setTempOn] = useState(false);
+  const [tempBase, setTempBase] = useState(15);
+  const [tempTick, setTempTick] = useState(5000);
+  const [tempMode, setTempMode] = useState<"HDD" | "CDD">("HDD");
+  // additional structured instruments — generation side
+  const [floorOn, setFloorOn] = useState(false);
+  const [floorStrike, setFloorStrike] = useState(50);
+  const [cfdOn, setCfdOn] = useState(false);
+  const [cfdStrike, setCfdStrike] = useState(75);
+  const [windIdxOn, setWindIdxOn] = useState(false);
+  const [windIdxStrike, setWindIdxStrike] = useState(8);
+  const [windIdxTick, setWindIdxTick] = useState(2000);
+  // settlement realism
+  const [imbalanceOn, setImbalanceOn] = useState(false);
   const [speed, setSpeed] = useState(20);
 
   const [rows, setRows] = useState<SnapRow[]>([]);
@@ -81,7 +110,15 @@ export function ReplayView({ ds }: { ds: Dataset }) {
     const ins: Instrument[] = [];
     if (collarOn) ins.push({ type: "collar", floor, cap: collarCap });
     if (capOn0) ins.push({ type: "cap", strike: capStrike });
+    if (swapOn) ins.push({ type: "swap", fixed: swapFixed, blockMW: swapBlockMW });
+    if (swingOn) ins.push({ type: "swing", strike: swingStrike, maxMW: swingMW });
+    if (quantoOn) ins.push({ type: "quanto", strike: quantoStrike, coverage: quantoCov / 100 });
+    if (dsrOn) ins.push({ type: "dsr", threshold: dsrThreshold, mw: dsrMW });
+    if (tempOn) ins.push({ type: "tempDeriv", baseTemp: tempBase, tickPerDD: tempTick, mode: tempMode });
     if (batteryOn) ins.push({ type: "battery", spec: { powerMW: batMW, durationH: batDur, roundTripEff: 0.85 } });
+    if (floorOn) ins.push({ type: "floor", strike: floorStrike });
+    if (cfdOn) ins.push({ type: "cfd", strike: cfdStrike });
+    if (windIdxOn) ins.push({ type: "windIndex", strikeWind: windIdxStrike, tickPerUnit: windIdxTick });
     if (proxyOn) ins.push({ type: "proxySwap" });
     return ins;
   }
@@ -99,8 +136,9 @@ export function ReplayView({ ds }: { ds: Dataset }) {
     const o = ownershipPct / 100;
     const cfg: ReplayConfig = {
       startIndex: startBar.rawStart, lengthPeriods, resolution,
-      loadSharePct, tariffGbpMwh: tariff, genOpexGbpMwh: 5, exportSurplus,
+      loadSharePct, tariffGbpMwh: tariff, ppaPriceGbpMwh: ppaPrice, exportSurplus,
       ownership: { windOffshore: o, windOnshore: o, solar: o, biomass: o },
+      imbalanceSettlement: imbalanceOn,
       instruments: buildInstruments(),
     };
     sessionRef.current = new ReplaySession(ds, cfg);
@@ -163,6 +201,22 @@ export function ReplayView({ ds }: { ds: Dataset }) {
       cumPaidWithM: round(s.cumPaidWith / 1e6, 3),
       cumPaidWithoutM: round(s.cumPaidWithout / 1e6, 3),
       marketPrice: s.marketPrice === s.marketPrice ? round(s.marketPrice) : null,
+      imbalancePrice: s.imbalancePrice === s.imbalancePrice ? round(s.imbalancePrice) : null,
+      ppaPrice: round(s.ppaPriceBar),
+      ourBuyPrice: s.ourBuyPriceBar === s.ourBuyPriceBar ? round(s.ourBuyPriceBar) : null,
+      cumRetailM: round(s.cumRetailRevenue / 1e6, 2),
+      cumGenCostM: round(s.cumGenCost / 1e6, 2),
+      cumMarketNetM: round((s.cumMarketBuyCost - s.cumExportIncome) / 1e6, 2),
+      serveCostK: round(s.serveCostBar / 1e3),
+      mktShortfallK: round(s.mktShortfallCostBar / 1e3),
+      chargeCostK: round(s.chargeCostBar / 1e3),
+      ppaServeK: round(s.ppaServeCostBar / 1e3),
+      collarReduceK: round(-s.collarPayoff / 1e3),
+      capReduceK: round(-s.capPayoff / 1e3),
+      proxyReduceK: round(-s.proxyPayoff / 1e3),
+      structReduceK: round(-s.structHedgePayoff / 1e3),
+      structPayK: round(s.structHedgePayoff / 1e3, 1),
+      genHedgeK: round(s.genHedgePayoff / 1e3, 1),
       consumerPaid: round(s.consumerPaidPrice),
       systemLoadGW: round(s.systemLoadMwh / barHours / 1000, 2),
       barCoveragePct: round(s.barCoveragePct, 1),
@@ -229,8 +283,9 @@ export function ReplayView({ ds }: { ds: Dataset }) {
         <div className="card full kpis">
           <Kpi n={`${num(kpi.coveragePct, 1)}%`} l="coverage" />
           <Kpi n={`${num(kpi.offProductionPct, 1)}%`} l="off-production periods" />
-          <Kpi n={`£${num(kpi.cumPaidWith / Math.max(1, kpi.cumConsumerMwh))}`} l="all-in £/MWh paid" />
-          <Kpi n={`£${num((kpi.cumPaidWithout - kpi.cumPaidWith) / 1e6, 2)}m`} l="saving vs market-only" />
+          <Kpi n={`£${num(kpi.cumGenCost / Math.max(1, kpi.cumGenMwh))}`} l="buy from generators £/MWh" />
+          <Kpi n={`£${num(kpi.cumRetailRevenue / Math.max(1, kpi.cumConsumerMwh))}`} l="sell to consumers £/MWh" />
+          <Kpi n={`£${num(kpi.cumPaidWith / Math.max(1, kpi.cumConsumerMwh))}`} l="all-in £/MWh to serve" />
           <Kpi n={`£${num(kpi.cumExportIncome / 1e6, 2)}m`} l="surplus export income" />
           <Kpi n={`£${num(kpi.cumMargin / 1e6, 2)}m`} l="cumulative margin" />
           <Kpi n={`${num(kpi.cumShortfallMwh / 1e3, 1)} GWh`} l="total shortfall bought" />
@@ -243,11 +298,21 @@ export function ReplayView({ ds }: { ds: Dataset }) {
         <ContractBuilder
           locked={mode === "running"}
           showHint={mode !== "running" && startBarIdx != null}
-          market={{ loadSharePct, setLoadSharePct, ownershipPct, setOwnershipPct, tariff, setTariff, exportSurplus, setExportSurplus }}
+          generators={{ ownershipPct, setOwnershipPct, ppaPrice, setPpaPrice, exportSurplus, setExportSurplus }}
+          consumers={{ loadSharePct, setLoadSharePct, tariff, setTariff }}
           collar={{ on: collarOn, setOn: setCollarOn, floor, setFloor, cap: collarCap, setCap: setCollarCap }}
           cap={{ on: capOn0, setOn: setCapOn, strike: capStrike, setStrike: setCapStrike }}
+          swap={{ on: swapOn, setOn: setSwapOn, fixed: swapFixed, setFixed: setSwapFixed, blockMW: swapBlockMW, setBlockMW: setSwapBlockMW }}
+          swing={{ on: swingOn, setOn: setSwingOn, strike: swingStrike, setStrike: setSwingStrike, maxMW: swingMW, setMaxMW: setSwingMW }}
+          quanto={{ on: quantoOn, setOn: setQuantoOn, strike: quantoStrike, setStrike: setQuantoStrike, coverage: quantoCov, setCoverage: setQuantoCov }}
+          dsr={{ on: dsrOn, setOn: setDsrOn, threshold: dsrThreshold, setThreshold: setDsrThreshold, mw: dsrMW, setMW: setDsrMW }}
+          temp={{ on: tempOn, setOn: setTempOn, base: tempBase, setBase: setTempBase, tick: tempTick, setTick: setTempTick, mode: tempMode, setMode: setTempMode }}
           battery={{ on: batteryOn, setOn: setBatteryOn, mw: batMW, setMW: setBatMW, dur: batDur, setDur: setBatDur }}
+          floor={{ on: floorOn, setOn: setFloorOn, strike: floorStrike, setStrike: setFloorStrike }}
+          cfd={{ on: cfdOn, setOn: setCfdOn, strike: cfdStrike, setStrike: setCfdStrike }}
+          windIndex={{ on: windIdxOn, setOn: setWindIdxOn, strikeWind: windIdxStrike, setStrikeWind: setWindIdxStrike, tick: windIdxTick, setTick: setWindIdxTick }}
           proxy={{ on: proxyOn, setOn: setProxyOn }}
+          imbalance={{ on: imbalanceOn, setOn: setImbalanceOn }}
         />
       )}
 
@@ -255,6 +320,8 @@ export function ReplayView({ ds }: { ds: Dataset }) {
       {rows.length > 0 && (
         <div className="grid">
           <div className="span-full"><ProductionStackPanel data={rows} /></div>
+          <PriceStackPanel data={rows} />
+          <PnlBySidePanel data={rows} />
           <SystemLoadPanel data={rows} />
           <PriceComparePanel data={rows} />
           <div className="span-full"><SourcingPanel data={rows} /></div>

@@ -20,6 +20,19 @@ export const COLUMN_ALIASES: Record<string, string> = {
   wind_speed_10m: "windSpeed10m",
   wind_speed_100m: "windSpeed100m",
   epoch_ms: "epochMs",
+  // merged from gb_renewable_datasets.xlsx — imbalance / BM / weighted weather / FR clearing prices
+  systemSellPrice: "imbalanceSell",
+  systemBuyPrice: "imbalanceBuy",
+  netImbalanceVolume: "niv",
+  reserveScarcityPrice: "reserveScarcity",
+  replacementPrice: "replacementPrice",
+  totalAcceptedOfferVolume: "bmOfferVol",
+  totalAcceptedBidVolume: "bmBidVol",
+  wtd_wind_speed_100m: "wtdWind",
+  wtd_temperature_2m: "wtdTemp",
+  dc_clearing_price: "dcPrice",
+  dm_clearing_price: "dmPrice",
+  dr_clearing_price: "drPrice",
 };
 
 /** Fuel columns counted as renewable generation (pumped storage excluded, per report §0). */

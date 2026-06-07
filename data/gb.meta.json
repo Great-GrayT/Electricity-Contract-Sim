@@ -1,5 +1,5 @@
 {
-  "source": "GB-realtime-data.xlsx",
+  "source": "GB-realtime-data.xlsx + gb_renewable_datasets.xlsx",
   "sheet": "GB",
   "rows": 112363,
   "columns": [
@@ -21,7 +21,33 @@
     "temperature_2m",
     "wind_speed_10m",
     "wind_speed_100m",
-    "epoch_ms"
+    "epoch_ms",
+    "systemSellPrice",
+    "systemBuyPrice",
+    "netImbalanceVolume",
+    "reserveScarcityPrice",
+    "replacementPrice",
+    "totalAcceptedOfferVolume",
+    "totalAcceptedBidVolume",
+    "wtd_wind_speed_100m",
+    "wtd_temperature_2m",
+    "dc_clearing_price",
+    "dm_clearing_price",
+    "dr_clearing_price"
+  ],
+  "merged": [
+    "systemSellPrice",
+    "systemBuyPrice",
+    "netImbalanceVolume",
+    "reserveScarcityPrice",
+    "replacementPrice",
+    "totalAcceptedOfferVolume",
+    "totalAcceptedBidVolume",
+    "wtd_wind_speed_100m",
+    "wtd_temperature_2m",
+    "dc_clearing_price",
+    "dm_clearing_price",
+    "dr_clearing_price"
   ],
   "dtype": "float64",
   "layout": "column-major",
@@ -46,8 +72,20 @@
     "temperature_2m": 56083,
     "wind_speed_10m": 56083,
     "wind_speed_100m": 56083,
-    "epoch_ms": 0
+    "epoch_ms": 0,
+    "systemSellPrice": 13,
+    "systemBuyPrice": 13,
+    "netImbalanceVolume": 13,
+    "reserveScarcityPrice": 40546,
+    "replacementPrice": 95198,
+    "totalAcceptedOfferVolume": 13,
+    "totalAcceptedBidVolume": 13,
+    "wtd_wind_speed_100m": 2,
+    "wtd_temperature_2m": 2,
+    "dc_clearing_price": 92926,
+    "dm_clearing_price": 102238,
+    "dr_clearing_price": 102238
   },
-  "generatedAt": "2026-06-06T02:35:54",
-  "note": "Real GB half-hourly data. Blanks preserved as NaN; no values synthesised."
+  "generatedAt": "2026-06-07T02:08:46",
+  "note": "Real GB half-hourly data; imbalance/BM/FR + weighted weather merged on round(serial*48). Blanks preserved as NaN; no values synthesised."
 }
