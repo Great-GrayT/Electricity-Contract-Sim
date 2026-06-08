@@ -30,6 +30,11 @@ export function ReplayView({ ds }: { ds: Dataset }) {
   const [ownershipPct, setOwnershipPct] = useState(3);
   const [ppaPrice, setPpaPrice] = useState(60);
   const [exportSurplus, setExportSurplus] = useState(true);
+  // PPA volume structure
+  const [ppaStructure, setPpaStructure] = useState<"payAsProduced" | "baseload" | "shaped" | "nominated" | "vfa">("payAsProduced");
+  const [firmMW, setFirmMW] = useState(1000);
+  const [shapedBandPct, setShapedBandPct] = useState(25);
+  const [vfaFee, setVfaFee] = useState(4);
   const [collarOn, setCollarOn] = useState(true);
   const [floor, setFloor] = useState(60);
   const [capOn0, setCapOn] = useState(true);
@@ -67,6 +72,23 @@ export function ReplayView({ ds }: { ds: Dataset }) {
   // settlement realism
   const [imbalanceOn, setImbalanceOn] = useState(false);
   const [speed, setSpeed] = useState(20);
+
+  // reference averages for sizing estimates: trailing 1 year of real data ending at the chosen start
+  // (no look-ahead — how a desk would size a contract). Falls back to whole history before a start is set.
+  const refAvg = useMemo(() => {
+    const fuels = ["windOffshore", "windOnshore", "solar", "biomass"].map((c) => ds.col(c));
+    const load = ds.col("load");
+    const end = startBarIdx != null ? mapBars[startBarIdx]!.rawStart : ds.rows;
+    const begin = Math.max(0, end - 365 * 48);
+    let rs = 0, rn = 0, ls = 0, ln = 0;
+    for (let i = begin; i < end; i++) {
+      let s = 0, any = false;
+      for (const c of fuels) { const v = c[i]!; if (v === v) { s += v; any = true; } }
+      if (any) { rs += s; rn++; }
+      const lv = load[i]!; if (lv === lv) { ls += lv; ln++; }
+    }
+    return { renewMW: rn ? rs / rn : NaN, loadMW: ln ? ls / ln : NaN };
+  }, [ds, startBarIdx, mapBars]);
 
   const [rows, setRows] = useState<SnapRow[]>([]);
   const [hist, setHist] = useState<PriceDist[]>([]);
@@ -138,6 +160,7 @@ export function ReplayView({ ds }: { ds: Dataset }) {
       startIndex: startBar.rawStart, lengthPeriods, resolution,
       loadSharePct, tariffGbpMwh: tariff, ppaPriceGbpMwh: ppaPrice, exportSurplus,
       ownership: { windOffshore: o, windOnshore: o, solar: o, biomass: o },
+      ppaStructure, firmMW, shapedBandPct: shapedBandPct / 100, vfaFeeGbpMwh: vfaFee,
       imbalanceSettlement: imbalanceOn,
       instruments: buildInstruments(),
     };
@@ -168,7 +191,7 @@ export function ReplayView({ ds }: { ds: Dataset }) {
       }
     }
     if (batch.length) setRows((prev) => prev.concat(batch));
-    if (last) { setKpi(last); setHist(s.priceHistograms(30)); }
+    if (last) { setKpi(last); setHist(s.priceHistograms(20)); }
     return !s.done;
   }
 
@@ -197,7 +220,7 @@ export function ReplayView({ ds }: { ds: Dataset }) {
       srcGenMwh: round(s.srcGenMwh), srcBatteryMwh: round(s.srcBatteryMwh), srcMarketMwh: round(s.srcMarketMwh),
       batterySocMWh: round(s.batterySocMwh, 1),
       cumMarginM: round(s.cumMargin / 1e6, 3),
-      effPricePaid: s.effPriceBar === s.effPriceBar ? round(s.effPriceBar) : null,
+      buyPriceHedged: s.buyPriceHedgedBar === s.buyPriceHedgedBar ? round(s.buyPriceHedgedBar) : null,
       cumPaidWithM: round(s.cumPaidWith / 1e6, 3),
       cumPaidWithoutM: round(s.cumPaidWithout / 1e6, 3),
       marketPrice: s.marketPrice === s.marketPrice ? round(s.marketPrice) : null,
@@ -207,6 +230,14 @@ export function ReplayView({ ds }: { ds: Dataset }) {
       cumRetailM: round(s.cumRetailRevenue / 1e6, 2),
       cumGenCostM: round(s.cumGenCost / 1e6, 2),
       cumMarketNetM: round((s.cumMarketBuyCost - s.cumExportIncome) / 1e6, 2),
+      cumMarketBuyM: round(s.cumMarketBuyCost / 1e6, 2),
+      cumExportIncomeM: round(s.cumExportIncome / 1e6, 2),
+      cumHedgeM: round((s.cumMargin - s.cumRetailRevenue + s.cumGenCost + (s.cumMarketBuyCost - s.cumExportIncome)) / 1e6, 2),
+      wxTemp: s.wxTemp === s.wxTemp ? round(s.wxTemp, 1) : null,
+      wxWind10: s.wxWind10 === s.wxWind10 ? round(s.wxWind10, 1) : null,
+      wxWind100: s.wxWind100 === s.wxWind100 ? round(s.wxWind100, 1) : null,
+      wxWtdWind: s.wxWtdWind === s.wxWtdWind ? round(s.wxWtdWind, 1) : null,
+      wxWtdTemp: s.wxWtdTemp === s.wxWtdTemp ? round(s.wxWtdTemp, 1) : null,
       serveCostK: round(s.serveCostBar / 1e3),
       mktShortfallK: round(s.mktShortfallCostBar / 1e3),
       chargeCostK: round(s.chargeCostBar / 1e3),
@@ -220,7 +251,8 @@ export function ReplayView({ ds }: { ds: Dataset }) {
       consumerPaid: round(s.consumerPaidPrice),
       systemLoadGW: round(s.systemLoadMwh / barHours / 1000, 2),
       barCoveragePct: round(s.barCoveragePct, 1),
-      coveragePct: round(s.coveragePct, 1), offProductionPct: round(s.offProductionPct, 1),
+      coveragePct: round(s.coveragePct, 1), genDeficitPct: round(s.genDeficitPct, 1),
+      imbalanceRatePct: round(s.imbalanceRatePct, 1),
       batteryRevK: round(s.batteryRevenue / 1e3, 1), hedgePayoffK: round((s.collarPayoff + s.capPayoff) / 1e3, 1),
       exportIncomeK: round(s.exportIncomeBar / 1e3, 1),
     };
@@ -282,10 +314,11 @@ export function ReplayView({ ds }: { ds: Dataset }) {
       {kpi && (
         <div className="card full kpis">
           <Kpi n={`${num(kpi.coveragePct, 1)}%`} l="coverage" />
-          <Kpi n={`${num(kpi.offProductionPct, 1)}%`} l="off-production periods" />
+          <Kpi n={`${num(kpi.genDeficitPct, 1)}%`} l="generation-deficit periods" />
+          <Kpi n={`${num(kpi.imbalanceRatePct, 1)}%`} l="imbalance rate (market vol / load)" />
           <Kpi n={`£${num(kpi.cumGenCost / Math.max(1, kpi.cumGenMwh))}`} l="buy from generators £/MWh" />
           <Kpi n={`£${num(kpi.cumRetailRevenue / Math.max(1, kpi.cumConsumerMwh))}`} l="sell to consumers £/MWh" />
-          <Kpi n={`£${num(kpi.cumPaidWith / Math.max(1, kpi.cumConsumerMwh))}`} l="all-in £/MWh to serve" />
+          <Kpi n={`£${num(kpi.cumBuyPricePaid)}`} l="price paid £/MWh (gen+shortfall, after hedges)" />
           <Kpi n={`£${num(kpi.cumExportIncome / 1e6, 2)}m`} l="surplus export income" />
           <Kpi n={`£${num(kpi.cumMargin / 1e6, 2)}m`} l="cumulative margin" />
           <Kpi n={`${num(kpi.cumShortfallMwh / 1e3, 1)} GWh`} l="total shortfall bought" />
@@ -298,8 +331,10 @@ export function ReplayView({ ds }: { ds: Dataset }) {
         <ContractBuilder
           locked={mode === "running"}
           showHint={mode !== "running" && startBarIdx != null}
-          generators={{ ownershipPct, setOwnershipPct, ppaPrice, setPpaPrice, exportSurplus, setExportSurplus }}
-          consumers={{ loadSharePct, setLoadSharePct, tariff, setTariff }}
+          generators={{ ownershipPct, setOwnershipPct, ppaPrice, setPpaPrice, exportSurplus, setExportSurplus,
+            structure: ppaStructure, setStructure: setPpaStructure, firmMW, setFirmMW,
+            band: shapedBandPct, setBand: setShapedBandPct, vfaFee, setVfaFee, avgRenewMW: refAvg.renewMW }}
+          consumers={{ loadSharePct, setLoadSharePct, tariff, setTariff, avgLoadMW: refAvg.loadMW }}
           collar={{ on: collarOn, setOn: setCollarOn, floor, setFloor, cap: collarCap, setCap: setCollarCap }}
           cap={{ on: capOn0, setOn: setCapOn, strike: capStrike, setStrike: setCapStrike }}
           swap={{ on: swapOn, setOn: setSwapOn, fixed: swapFixed, setFixed: setSwapFixed, blockMW: swapBlockMW, setBlockMW: setSwapBlockMW }}

@@ -3,6 +3,20 @@ import {
   ResponsiveContainer, LineChart, AreaChart, Line, Area, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, Legend,
 } from "recharts";
 
+/** " · ~X.X GW · Y GWh/yr" sizing hint from an average-MW figure; empty if unavailable. */
+const sizeStr = (mw: number): string =>
+  mw === mw && mw > 0
+    ? ` · ~${mw >= 1000 ? (mw / 1000).toFixed(2) + " GW" : Math.round(mw) + " MW"} · ${Math.round(mw * 8.76).toLocaleString()} GWh/yr`
+    : "";
+
+const STRUCT_DESC: Record<string, string> = {
+  payAsProduced: "Pay-as-produced: you take whatever the assets generate. You carry all volume & shape risk — shortfall topped up from the market, surplus sold/curtailed.",
+  baseload: "Baseload: the seller delivers a flat firm block whatever the weather, firming the gap via storage/market. Volume & shape risk sit with the seller (priced into the PPA).",
+  shaped: "Shaped: you take the actual output but only within ±band of the firm level — the seller absorbs anything beyond the band. Volume risk is shared inside the band.",
+  nominated: "Pay-as-nominated: you receive the firm nomination, but you balance the asset's deviation from it at the cash-out/day-ahead price — you carry the forecast/balancing risk.",
+  vfa: "Volume Firming Agreement: you keep the pay-as-produced asset, but a counterparty firms it to the firm level — the (actual − firm) gap settles at the day-ahead index, less a per-MWh firming fee.",
+};
+
 const AXIS = { stroke: "#8b949e", fontSize: 10 };
 const GRID = "#21262d";
 const TT = { background: "#161b22", border: "1px solid #30363d", fontSize: 12 };
@@ -10,8 +24,14 @@ const TT = { background: "#161b22", border: "1px solid #30363d", fontSize: 12 };
 export interface BuilderProps {
   locked: boolean;
   showHint: boolean;
-  generators: { ownershipPct: number; setOwnershipPct: (n: number) => void; ppaPrice: number; setPpaPrice: (n: number) => void; exportSurplus: boolean; setExportSurplus: (b: boolean) => void };
-  consumers: { loadSharePct: number; setLoadSharePct: (n: number) => void; tariff: number; setTariff: (n: number) => void };
+  generators: {
+    ownershipPct: number; setOwnershipPct: (n: number) => void; ppaPrice: number; setPpaPrice: (n: number) => void;
+    exportSurplus: boolean; setExportSurplus: (b: boolean) => void;
+    structure: "payAsProduced" | "baseload" | "shaped" | "nominated" | "vfa"; setStructure: (s: "payAsProduced" | "baseload" | "shaped" | "nominated" | "vfa") => void;
+    firmMW: number; setFirmMW: (n: number) => void; band: number; setBand: (n: number) => void; vfaFee: number; setVfaFee: (n: number) => void;
+    avgRenewMW: number; // trailing-1yr mean national renewables (MW) for sizing estimate
+  };
+  consumers: { loadSharePct: number; setLoadSharePct: (n: number) => void; tariff: number; setTariff: (n: number) => void; avgLoadMW: number };
   collar: { on: boolean; setOn: (b: boolean) => void; floor: number; setFloor: (n: number) => void; cap: number; setCap: (n: number) => void };
   cap: { on: boolean; setOn: (b: boolean) => void; strike: number; setStrike: (n: number) => void };
   swap: { on: boolean; setOn: (b: boolean) => void; fixed: number; setFixed: (n: number) => void; blockMW: number; setBlockMW: (n: number) => void };
@@ -70,11 +90,32 @@ export function ContractBuilder(p: BuilderProps) {
 
       {tab === "generators" && (
         <div>
-          <p className="muted" style={{ marginTop: 0 }}>The <strong>buy side</strong>: a pay-as-produced PPA with renewable generators. We pay the PPA price for every MWh they produce; shortfall is topped up from the market, surplus sold or curtailed.</p>
+          <p className="muted" style={{ marginTop: 0 }}>The <strong>buy side</strong>: a PPA with renewable generators. <em>Contracted volume</em> sizes your asset portfolio (output follows real weather); the <em>volume structure</em> decides what volume you actually receive and who carries the volume/shape gap.</p>
           <div className="builder-body">
             <div className="controls">
-              <Slider label="Contracted volume" v={p.generators.ownershipPct} min={1} max={30} step={1} fmt={(x) => `${x}% of national renewables`} on={p.generators.setOwnershipPct} dis={dis} />
+              {p.generators.structure !== "baseload" && (
+                <Slider label="Contracted volume" v={p.generators.ownershipPct} min={1} max={30} step={1} fmt={(x) => `${x}% of national renewables${sizeStr(x / 100 * p.generators.avgRenewMW)}`} on={p.generators.setOwnershipPct} dis={dis} />
+              )}
               <Slider label="PPA price (we pay generators)" v={p.generators.ppaPrice} min={20} max={120} step={5} fmt={(x) => `£${x}/MWh`} on={p.generators.setPpaPrice} dis={dis} />
+              <div className="ctrl">
+                <label>Volume structure</label>
+                <select title="PPA volume structure" disabled={dis} value={p.generators.structure} onChange={(e) => p.generators.setStructure(e.target.value as BuilderProps["generators"]["structure"])} style={{ width: "100%", background: "#21262d", color: "#e6edf3", border: "1px solid #30363d", padding: "6px" }}>
+                  <option value="payAsProduced">Pay-as-produced — take actual output (buyer risk)</option>
+                  <option value="baseload">Baseload — flat firm block (seller firms)</option>
+                  <option value="shaped">Shaped — actual within ±band of firm (shared)</option>
+                  <option value="nominated">Pay-as-nominated — firm, you balance deviation (buyer forecast risk)</option>
+                  <option value="vfa">VFA — firmed, gap at index less a fee</option>
+                </select>
+              </div>
+              {p.generators.structure !== "payAsProduced" && (
+                <Slider label="Firm level" v={p.generators.firmMW} min={0} max={4000} step={50} fmt={(x) => `${x} MW · ${Math.round(x * 8.76).toLocaleString()} GWh/yr`} on={p.generators.setFirmMW} dis={dis} />
+              )}
+              {p.generators.structure === "shaped" && (
+                <Slider label="Shape band" v={p.generators.band} min={0} max={80} step={5} fmt={(x) => `±${x}%`} on={p.generators.setBand} dis={dis} />
+              )}
+              {p.generators.structure === "vfa" && (
+                <Slider label="Firming fee" v={p.generators.vfaFee} min={0} max={30} step={1} fmt={(x) => `£${x}/MWh`} on={p.generators.setVfaFee} dis={dis} />
+              )}
               <div className="ctrl">
                 <label>Sell surplus to market</label>
                 <button disabled={dis} onClick={() => p.generators.setExportSurplus(!p.generators.exportSurplus)} style={{ background: p.generators.exportSurplus ? "#238636" : "#21262d", width: "100%" }}>{p.generators.exportSurplus ? "ON — export for income" : "OFF — curtail surplus"}</button>
@@ -82,6 +123,7 @@ export function ContractBuilder(p: BuilderProps) {
             </div>
             <PayoffChart kind="ppa" ppa={p.generators.ppaPrice} />
           </div>
+          <p className="muted">{STRUCT_DESC[p.generators.structure]}</p>
         </div>
       )}
 
@@ -90,7 +132,7 @@ export function ContractBuilder(p: BuilderProps) {
           <p className="muted" style={{ marginTop: 0 }}>The <strong>sell side</strong>: the retail contract with consumers. They pay us the tariff for every MWh they consume; we are obliged to serve their full load.</p>
           <div className="builder-body">
             <div className="controls">
-              <Slider label="Consumer load" v={p.consumers.loadSharePct} min={1} max={30} step={1} fmt={(x) => `${x}% of GB demand`} on={p.consumers.setLoadSharePct} dis={dis} />
+              <Slider label="Consumer load" v={p.consumers.loadSharePct} min={1} max={30} step={1} fmt={(x) => `${x}% of GB demand${sizeStr(x / 100 * p.consumers.avgLoadMW)}`} on={p.consumers.setLoadSharePct} dis={dis} />
               <Slider label="Retail tariff (consumers pay us)" v={p.consumers.tariff} min={60} max={250} step={5} fmt={(x) => `£${x}/MWh`} on={p.consumers.setTariff} dis={dis} />
             </div>
             <PayoffChart kind="retail" tariff={p.consumers.tariff} ppa={p.generators.ppaPrice} />
@@ -229,7 +271,7 @@ export function ContractBuilder(p: BuilderProps) {
 
       {tab === "imbalance" && (
         <InstrumentTab on={p.imbalance.on} setOn={p.imbalance.setOn} dis={dis} name="Settle residual at cash-out (imbalance)"
-          desc="Settlement realism, not a hedge. When ON, the off-production shortfall and exported surplus settle at the REAL single imbalance (cash-out) price — systemBuyPrice / systemSellPrice from Elexon — instead of day-ahead. Battery charge and every hedge still reference day-ahead, so the punitive cash-out vs day-ahead basis (the last-mile risk) shows up directly in the effective price.">
+          desc="Settlement realism, not a hedge. When ON, the generation-deficit shortfall and exported surplus settle at the REAL single imbalance (cash-out) price — systemBuyPrice / systemSellPrice from Elexon — instead of day-ahead. Battery charge and every hedge still reference day-ahead, so the punitive cash-out vs day-ahead basis (the last-mile risk) shows up directly in the effective price.">
           <p className="muted">No dials — this re-prices the unhedged residual at the real cash-out price. Watch the red ‘cash-out (imbalance)’ line vs the blue day-ahead line on the price panel.</p>
         </InstrumentTab>
       )}

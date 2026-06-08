@@ -10,7 +10,7 @@ import { isNum, mean } from "./stats.js";
  * Physical model per half-hour:
  *   consumerLoad = loadSharePct% * system load        (the demand the contract must serve)
  *   contractedGen = sum_f ownership_f * national_f     (own renewable generation)
- *   shortfall = max(consumerLoad - contractedGen, 0)   -> OFF-PRODUCTION, bought at spot
+ *   shortfall = max(consumerLoad - contractedGen, 0)   -> GENERATION DEFICIT, bought at spot
  *   surplus   = max(contractedGen - consumerLoad, 0)   -> sold at spot
  * Settlement is always at native half-hourly resolution; bars only aggregate the result
  * for display, so hour/day stepping stays economically exact.
@@ -48,11 +48,19 @@ export interface ReplayConfig {
   resolution: Resolution;   // stepping/chart resolution
   loadSharePct: number;     // consumer load as % of system load (the retail contract volume)
   tariffGbpMwh: number;     // retail tariff: price the CONSUMER pays us, £/MWh
-  ownership: Partial<Record<string, number>>; // PPA contract: fraction of national renewable output we offtake
-  ppaPriceGbpMwh: number;   // PPA price: price we pay the GENERATOR per MWh contracted, £/MWh (pay-as-produced)
+  ownership: Partial<Record<string, number>>; // sizes the asset portfolio: fraction of national renewable output
+  ppaPriceGbpMwh: number;   // PPA price: price we pay the GENERATOR per MWh contracted, £/MWh
+  /** PPA VOLUME STRUCTURE — decides the volume we actually receive and who carries the volume/shape gap.
+   *  payAsProduced: take actual output (buyer risk). baseload: flat firm block (seller firms).
+   *  shaped: actual clamped into ±band around firm (shared). nominated: firm, buyer balances the
+   *  asset deviation at cash-out. vfa: firm via a Volume Firming Agreement (gap at index, less a fee). */
+  ppaStructure?: "payAsProduced" | "baseload" | "shaped" | "nominated" | "vfa";
+  firmMW?: number;          // firm/nominated/VFA target level, MW (baseload, shaped, nominated, vfa)
+  shapedBandPct?: number;   // ± band as a fraction (0..1) around firm for the shaped structure
+  vfaFeeGbpMwh?: number;    // VFA firming fee, £/MWh of firm volume
   /** Whether PPA surplus is sold to the market for income (default true). If false, surplus is curtailed (we still pay the PPA). */
   exportSurplus?: boolean;
-  /** If true, the residual (off-production shortfall / surplus) settles at the REAL single
+  /** If true, the residual (generation-deficit shortfall / surplus) settles at the REAL single
    * imbalance/cash-out price (systemBuyPrice / systemSellPrice) instead of day-ahead — the
    * punitive last-mile price. Hedges still reference day-ahead, so cash-out vs DA basis emerges. */
   imbalanceSettlement?: boolean;
@@ -68,13 +76,22 @@ export interface StepSnapshot {
   genMwh: number;
   shortfallMwh: number;
   surplusMwh: number;
-  offProductionPeriods: number; // raw periods in this bar where gen < load
+  genDeficitPeriods: number; // raw periods in this bar where gen < load
   avgPricePaid: number;         // volume-weighted price on bought energy this bar
   systemLoadMwh: number;        // total GB demand this bar (market context)
+  // weather this bar (mean of the real series; NaN if the column is absent/empty)
+  wxTemp: number;               // temperature_2m, °C
+  wxWind10: number;             // wind_speed_10m, m/s
+  wxWind100: number;            // wind_speed_100m, m/s
+  wxWtdWind: number;            // weighted wind-farm wind speed 100m, m/s
+  wxWtdTemp: number;            // weighted temperature, °C
   marketPrice: number;          // mean day-ahead price this bar, £/MWh
   imbalancePrice: number;       // mean real cash-out (system buy) price this bar, £/MWh (NaN if unavailable)
   consumerPaidPrice: number;    // retail tariff charged to the consumer, £/MWh
-  effPriceBar: number;          // cost to SERVE LOAD this bar / load, £/MWh (incl. instruments; excl. export income)
+  buyPriceHedgedBar: number;    // PRICE PAID to procure this bar, £/MWh = (PPA·gen + shortfall·cappedSpot +
+                                // charge·cappedSpot) ÷ MWh procured. Buy-side options act as PRICE CAPS/FLOORS,
+                                // never as income. Always ≥ 0 — it is a cost, not a P&L.
+  cumBuyPricePaid: number;      // cumulative volume-weighted price paid to procure, £/MWh
   marketOnlyPriceBar: number;   // counterfactual: whole load bought at spot, £/MWh (load-weighted)
   // cost-to-serve breakdown this bar (£): serveCost = mktShortfallCost + chargeCost + ppaServeCost − collar − cap − proxy
   serveCostBar: number;
@@ -86,11 +103,11 @@ export interface StepSnapshot {
   ourBuyPriceBar: number;       // weighted-avg £/MWh we actually paid to source this bar (PPA + market)
   production: Record<string, number>; // national generation by fuel this bar, MWh
   barCoveragePct: number;       // self-supplied (gen+battery) / consumer load THIS bar, capped 100
-  barOffProductionPct: number;  // off-production periods / periods THIS bar
+  barGenDeficitPct: number;  // generation-deficit periods / periods THIS bar
   // optimized sourcing decomposition (sum = consumerMwh)
   srcGenMwh: number;            // load met by own generation
   srcBatteryMwh: number;        // load met by battery discharge
-  srcMarketMwh: number;         // load met by market purchase (off-production)
+  srcMarketMwh: number;         // load met by market purchase (generation-deficit)
   batterySocMwh: number;        // battery state of charge at bar end
   chargedMwh: number;           // energy charged into battery this bar
   // per-bar economics (£)
@@ -102,15 +119,17 @@ export interface StepSnapshot {
   proxyPayoff: number;
   structHedgePayoff: number;  // buy-side structured overlays this bar (swap + swing + quanto + dsr), £ — reduces cost-to-serve
   genHedgePayoff: number;     // generation-side overlays this bar (floor + cfd + windIndex), £ — revenue stabiliser
+  structVolCashBar: number;   // PPA volume-structure settlement this bar (nominated/VFA counterparty cash), £ (+ income)
   stepMargin: number;
   // cumulative
   cumMargin: number;
   cumConsumerMwh: number;
   cumGenMwh: number;
   cumShortfallMwh: number;
-  cumOffProductionPeriods: number;
+  cumGenDeficitPeriods: number;
   coveragePct: number;          // covered energy / consumer energy so far
-  offProductionPct: number;     // off-production periods / periods so far
+  genDeficitPct: number;        // generation-deficit periods / periods so far (own gen < load)
+  imbalanceRatePct: number;     // ENERGY share of consumer load met by market purchase = shortfall / consumer (cumulative)
   runningCapture: number;       // vol-weighted price earned by generation so far
   cumPaidWith: number;          // cumulative £ to serve load under the contract + instruments
   cumPaidWithout: number;       // cumulative £ if the whole load were bought at spot (no contract)
@@ -148,11 +167,12 @@ export class ReplaySession {
     paidWith: 0, paidWithout: 0,    // cumulative £ to serve load, with vs without the contract
     exportIncome: 0,                // cumulative £ from surplus sales
     retailRev: 0, genCost: 0, marketBuy: 0, // P&L by side: from consumers / to generators / to market
+    buyCost: 0, buyMwh: 0,          // cumulative £ paid to procure energy / MWh procured (price paid, hedges as caps)
   };
   // price samples over the revealed range, for the distribution charts (shared bins)
   private readonly marketP: number[] = [];   // every finite market price (one per period)
-  private readonly paidP: number[] = [];     // ALL-IN effective price paid per period (incl. instruments)
-  private readonly paidW: number[] = [];     // load MWh weight for that effective price
+  private readonly paidP: number[] = [];     // effective PRICE PAID to procure, per period £/MWh (hedges as price caps, never < 0)
+  private readonly paidW: number[] = [];     // MWh procured weight for that price
 
   constructor(ds: Dataset, config: ReplayConfig) {
     this.ds = ds;
@@ -232,9 +252,38 @@ export class ReplaySession {
     const airTemp = this.ds.has("wtdTemp") ? this.ds.col("wtdTemp") : null;
     const useImb = !!c.imbalanceSettlement && !!imbBuy && !!imbSell;
 
+    // weather series (all that exist in the dataset) — averaged over the bar for the breakdown
+    const wx = {
+      temp: this.ds.has("temp") ? this.ds.col("temp") : null,
+      ws10: this.ds.has("windSpeed10m") ? this.ds.col("windSpeed10m") : null,
+      ws100: this.ds.has("windSpeed100m") ? this.ds.col("windSpeed100m") : null,
+      wtdWind: windSpeed, wtdTemp: airTemp,
+    };
+    const wxSum = { temp: 0, ws10: 0, ws100: 0, wtdWind: 0, wtdTemp: 0 };
+    const wxN = { temp: 0, ws10: 0, ws100: 0, wtdWind: 0, wtdTemp: 0 };
+
+    // --- PRICE PAID: buy-side options act as price CAPS/FLOORS on the bought volume, never as income. ---
+    // The tightest active ceiling and highest active floor bound the spot you actually pay for procurement,
+    // so the effective price can never go negative or turn into a payout.
+    let buyCeil = Infinity, buyFloor = 0;
+    if (capI) buyCeil = Math.min(buyCeil, capI.strike);
+    if (collar) { buyCeil = Math.min(buyCeil, collar.cap); buyFloor = Math.max(buyFloor, collar.floor); }
+    if (swingI) buyCeil = Math.min(buyCeil, swingI.strike);
+    if (quantoI) buyCeil = Math.min(buyCeil, quantoI.strike);
+    if (dsrI) buyCeil = Math.min(buyCeil, dsrI.threshold);
+    const ppaPos = Math.max(0, ppa);
+
+    // PPA volume structure (decides received volume + risk transfer)
+    const ppaStruct = c.ppaStructure ?? "payAsProduced";
+    const firmMW = c.firmMW ?? 0;
+    const shapedBand = c.shapedBandPct ?? 0.25;
+    const vfaFee = c.vfaFeeGbpMwh ?? 0;
+    let barStructCash = 0; // counterparty settlement from the volume structure this bar, £ (income +)
+
     let consumer = 0, gen = 0, surplus = 0, off = 0;
     let retail = 0, energyCost = 0, collarPayoff = 0, capPayoff = 0, batteryRevenue = 0, proxyPayoff = 0;
     let structHedgePayoff = 0, genHedgePayoff = 0;
+    let barBuyCost = 0, barBuyMwh = 0; // £ paid to procure this bar / MWh procured (price paid, hedges as caps)
     let boughtNum = 0, boughtDen = 0;
     let systemLoadMwh = 0, priceSum = 0, priceN = 0, validPeriods = 0, imbSum = 0, imbN = 0;
     let srcGen = 0, srcBat = 0, srcMkt = 0, chargedMwh = 0;
@@ -253,7 +302,21 @@ export class ReplaySession {
       validPeriods++;
       const dem = (c.loadSharePct / 100) * ld * dt;
       const g = this.genAt(i);
-      const gv = isNum(g) ? g : 0;
+      const A = isNum(g) ? g : 0;       // actual asset output (real, weather-driven) — the pay-as-produced baseline
+
+      // residual settlement price (cash-out if enabled, else day-ahead) — also used by some volume structures
+      const ib = useImb && isNum(imbBuy![i]!) ? imbBuy![i]! : p;
+      const is = useImb && isNum(imbSell![i]!) ? imbSell![i]! : p;
+      if (useImb && isNum(imbBuy![i]!)) { imbSum += imbBuy![i]!; imbN++; }
+
+      // --- PPA VOLUME STRUCTURE: the volume we actually receive + who carries the gap ---
+      const firm = firmMW * dt;
+      let gv = A, ppaVol = A, structCash = 0;   // default: pay-as-produced (buyer carries volume + shape)
+      if (ppaStruct === "baseload") { gv = firm; ppaVol = firm; }                                  // seller firms to a flat block
+      else if (ppaStruct === "shaped") { gv = clamp(A, firm * (1 - shapedBand), firm * (1 + shapedBand)); ppaVol = gv; } // shared within ±band
+      else if (ppaStruct === "nominated") { gv = firm; ppaVol = firm; structCash = (A - firm) * (A >= firm ? is : ib); } // buyer balances asset deviation at cash-out
+      else if (ppaStruct === "vfa") { gv = firm; ppaVol = A; structCash = (A - firm) * p - vfaFee * firm; }  // firm via VFA: gap at index, less firming fee
+      barStructCash += structCash;
 
       consumer += dem; gen += gv;
       retail += dem * c.tariffGbpMwh;
@@ -262,6 +325,7 @@ export class ReplaySession {
       // priority: own generation -> battery (when price high) -> market.
       const fromGen = Math.min(gv, dem);
       let short = dem - fromGen;          // still to source
+      const genUncovered = short;         // load NOT met by own generation alone (before battery/market) → generation-deficit
       let surplusGen = gv - fromGen;      // own generation beyond load
       let fromBat = 0, fromMkt = 0, sell = 0, chargeBuy = 0, chargeSurplus = 0;
       const ref = this.trailMean[i]!;
@@ -296,17 +360,12 @@ export class ReplaySession {
       srcGen += fromGen; srcBat += fromBat; srcMkt += fromMkt;
       surplus += sell;
 
-      // settlement price for the residual: cash-out (imbalance) when enabled & available, else day-ahead.
-      // Battery charge and all hedges still settle at day-ahead, so a DA↔cash-out basis appears on the residual.
-      const ib = useImb && isNum(imbBuy![i]!) ? imbBuy![i]! : p;
-      const is = useImb && isNum(imbSell![i]!) ? imbSell![i]! : p;
-      if (useImb && isNum(imbBuy![i]!)) { imbSum += imbBuy![i]!; imbN++; }
-
-      // our procurement: pay the generator the PPA price for ALL contracted output (pay-as-produced),
-      // buy any shortfall + battery charge from the market, credit surplus sales.
-      energyCost += fromMkt * ib + chargeBuy * p - sell * is + gv * ppa;
-      barGenCost += gv * ppa;                 // £ to generators
-      barMarketBuy += fromMkt * ib + chargeBuy * p; // £ to market
+      // our procurement: pay the generator the PPA price on the contracted volume (ppaVol depends on the
+      // structure), buy shortfall + battery charge from the market, credit surplus sales, and settle any
+      // volume-structure cash with the counterparty (structCash: + = income to us).
+      energyCost += fromMkt * ib + chargeBuy * p - sell * is + ppaVol * ppa - structCash;
+      barGenCost += ppaVol * ppa;                 // £ to generators
+      barMarketBuy += fromMkt * ib + chargeBuy * p - structCash; // £ to market (incl. volume-structure settlement)
       barChargeBuyMwh += chargeBuy;
       batteryRevenue += fromBat * p - chargeBuy * p; // value the battery added vs buying/charging at spot
 
@@ -314,10 +373,18 @@ export class ReplaySession {
       systemLoadMwh += ld * dt;
       priceSum += p; priceN++;
       this.marketP.push(p);
+
+      // weather context (mean over the bar, NaN-safe)
+      for (const k of ["temp", "ws10", "ws100", "wtdWind", "wtdTemp"] as const) {
+        const col = wx[k]; if (!col) continue; const v = col[i]!;
+        if (isNum(v)) { wxSum[k] += v; wxN[k]++; }
+      }
       for (const f of PRODUCTION_FUELS) { const v = this.ds.col(f)[i]!; if (isNum(v)) production[f]! += v * dt; }
 
-      // off-production = load served from the market (priced at the residual settlement price)
-      if (fromMkt > 1e-9) { off++; boughtNum += fromMkt * ib; boughtDen += fromMkt; }
+      // generation-deficit = periods where own generation alone did not cover load (battery-covered periods count too)
+      if (genUncovered > 1e-9) off++;
+      // avg market price paid tracks actual market buys (after own gen + battery)
+      if (fromMkt > 1e-9) { boughtNum += fromMkt * ib; boughtDen += fromMkt; }
 
       // financial overlays hedge the actual market exposure (buys + charge buys, less sales)
       const hedgeNet = fromMkt + chargeBuy - sell;
@@ -357,7 +424,15 @@ export class ReplaySession {
       barPpaServe += (gv - sell) * ppa;
       barExportIncome += sell * (is - ppa); // surplus sold at the residual price, acquired at PPA
       barMktOnly += dem * p;               // counterfactual: buy the whole load at spot (day-ahead)
-      if (dem > 1e-9) { this.paidP.push(serveCost / dem); this.paidW.push(dem); }
+
+      // PRICE PAID to procure this period: PPA on own generation + shortfall & charge at the spot
+      // CAPPED into [buyFloor, buyCeil] by the buy-side options. Pure cost — every term ≥ 0.
+      const pShortEff = clamp(ib, buyFloor, buyCeil);
+      const pChargeEff = clamp(p, buyFloor, buyCeil);
+      const periodBuyCost = ppaVol * ppaPos + fromMkt * pShortEff + chargeBuy * pChargeEff;
+      const periodBuyMwh = gv + fromMkt + chargeBuy;
+      barBuyCost += periodBuyCost; barBuyMwh += periodBuyMwh;
+      if (periodBuyMwh > 1e-9) { this.paidP.push(periodBuyCost / periodBuyMwh); this.paidW.push(periodBuyMwh); }
 
       // running capture (generation value)
       if (gv > 0) { this.cum.genValueNum += p * gv; this.cum.genValueDen += gv; }
@@ -379,18 +454,27 @@ export class ReplaySession {
     this.cum.retailRev += retail;
     this.cum.genCost += barGenCost;
     this.cum.marketBuy += barMarketBuy;
+    this.cum.buyCost += barBuyCost;
+    this.cum.buyMwh += barBuyMwh;
 
     const covered = this.cum.consumer - this.cum.shortfall;
     const snap: StepSnapshot = {
       barIndex: this.bar, bar: b,
       consumerMwh: consumer, genMwh: gen, shortfallMwh: shortfall, surplusMwh: surplus,
-      offProductionPeriods: off,
+      genDeficitPeriods: off,
       avgPricePaid: boughtDen ? boughtNum / boughtDen : NaN,
       systemLoadMwh,
+      wxTemp: wxN.temp ? wxSum.temp / wxN.temp : NaN,
+      wxWind10: wxN.ws10 ? wxSum.ws10 / wxN.ws10 : NaN,
+      wxWind100: wxN.ws100 ? wxSum.ws100 / wxN.ws100 : NaN,
+      wxWtdWind: wxN.wtdWind ? wxSum.wtdWind / wxN.wtdWind : NaN,
+      wxWtdTemp: wxN.wtdTemp ? wxSum.wtdTemp / wxN.wtdTemp : NaN,
       marketPrice: priceN ? priceSum / priceN : NaN,
       imbalancePrice: imbN ? imbSum / imbN : NaN,
       consumerPaidPrice: c.tariffGbpMwh,
-      effPriceBar: consumer ? barServeCost / consumer : NaN,
+      // PRICE PAID to procure (PPA gen + shortfall + charge), spot capped/floored by buy-side options. Always ≥ 0.
+      buyPriceHedgedBar: barBuyMwh > 1e-9 ? barBuyCost / barBuyMwh : NaN,
+      cumBuyPricePaid: this.cum.buyMwh > 1e-9 ? this.cum.buyCost / this.cum.buyMwh : NaN,
       marketOnlyPriceBar: consumer ? barMktOnly / consumer : NaN,
       serveCostBar: barServeCost,
       mktShortfallCostBar: barMktShortfall,
@@ -401,16 +485,17 @@ export class ReplaySession {
       ourBuyPriceBar: (gen + srcMkt + barChargeBuyMwh) > 1e-9 ? (barGenCost + barMarketBuy) / (gen + srcMkt + barChargeBuyMwh) : NaN,
       production,
       barCoveragePct: consumer ? Math.min(100, (100 * (consumer - shortfall)) / consumer) : NaN,
-      barOffProductionPct: validPeriods ? (100 * off) / validPeriods : NaN,
+      barGenDeficitPct: validPeriods ? (100 * off) / validPeriods : NaN,
       srcGenMwh: srcGen, srcBatteryMwh: srcBat, srcMarketMwh: srcMkt,
       batterySocMwh: this.batSoc, chargedMwh,
       retail, energyCost, collarPayoff, capPayoff, batteryRevenue, proxyPayoff,
-      structHedgePayoff, genHedgePayoff, stepMargin,
+      structHedgePayoff, genHedgePayoff, structVolCashBar: barStructCash, stepMargin,
       cumMargin: this.cum.margin,
       cumConsumerMwh: this.cum.consumer, cumGenMwh: this.cum.gen, cumShortfallMwh: this.cum.shortfall,
-      cumOffProductionPeriods: this.cum.off,
+      cumGenDeficitPeriods: this.cum.off,
       coveragePct: this.cum.consumer ? (100 * covered) / this.cum.consumer : NaN,
-      offProductionPct: this.cum.periods ? (100 * this.cum.off) / this.cum.periods : NaN,
+      genDeficitPct: this.cum.periods ? (100 * this.cum.off) / this.cum.periods : NaN,
+      imbalanceRatePct: this.cum.consumer ? (100 * this.cum.shortfall) / this.cum.consumer : NaN,
       runningCapture: this.cum.genValueDen ? this.cum.genValueNum / this.cum.genValueDen : NaN,
       cumPaidWith: this.cum.paidWith,
       cumPaidWithout: this.cum.paidWithout,
@@ -430,19 +515,23 @@ export class ReplaySession {
    * Two price distributions over the revealed contract range, on SHARED price bins so they
    * line up on the same x-axis:
    *  - marketPct: share of market half-hours in each price bin (what the market did)
-   *  - paidPct: share of consumed MWh at each ALL-IN effective price the consumer actually
-   *    paid (after generation, battery and every instrument). This is the price the contract
-   *    delivered, not the raw market price.
+   *  - paidPct: share of procured MWh at each PRICE PAID (PPA + spot capped/floored by the
+   *    buy-side options). This is the price the contract actually paid for energy — always ≥ 0,
+   *    never a payout — so it shows how the instruments squeeze the price distribution inward.
    * Bins span the combined range of both series over the revealed dates, so the x-axis tracks
    * the actual range as the replay advances.
    */
-  priceHistograms(nbins = 30): { bin: number; marketPct: number; paidPct: number }[] {
+  priceHistograms(binWidth = 20): { bin: number; marketPct: number; paidPct: number }[] {
     if (!this.marketP.length) return [];
+    const w = binWidth > 0 ? binWidth : 20;
     let lo = Infinity, hi = -Infinity;
     for (const p of this.marketP) { lo = Math.min(lo, p); hi = Math.max(hi, p); }
     for (const p of this.paidP) { lo = Math.min(lo, p); hi = Math.max(hi, p); }
-    if (lo === hi) hi = lo + 1;
-    const w = (hi - lo) / nbins;
+    // snap the range outward to whole £binWidth boundaries so every bar spans exactly binWidth
+    lo = Math.floor(lo / w) * w;
+    hi = Math.ceil(hi / w) * w;
+    if (hi <= lo) hi = lo + w;
+    const nbins = Math.max(1, Math.round((hi - lo) / w));
     const idx = (p: number) => Math.min(nbins - 1, Math.max(0, Math.floor((p - lo) / w)));
 
     const mkt = new Array(nbins).fill(0);
@@ -453,7 +542,7 @@ export class ReplaySession {
 
     const mktTot = this.marketP.length;
     return mkt.map((m, k) => ({
-      bin: Math.round((lo + (k + 0.5) * w) * 10) / 10,
+      bin: Math.round((lo + k * w) * 10) / 10,   // lower edge of the £binWidth-wide bar
       marketPct: mktTot ? (100 * m) / mktTot : 0,
       paidPct: paidTot ? (100 * paid[k]) / paidTot : 0,
     }));

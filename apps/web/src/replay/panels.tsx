@@ -36,7 +36,7 @@ export interface SnapRow {
   srcMarketMwh: number;
   batterySocMWh: number;
   cumMarginM: number;        // £m
-  effPricePaid: number | null;   // all-in effective £/MWh this bar
+  buyPriceHedged: number | null; // price paid to procure (gen+shortfall), spot capped by buy-side options, £/MWh ≥ 0
   cumPaidWithM: number;          // £m cumulative, with contract
   cumPaidWithoutM: number;       // £m cumulative, spot-only (no contract)
   marketPrice: number | null;
@@ -47,6 +47,14 @@ export interface SnapRow {
   cumRetailM: number;            // £m from consumers
   cumGenCostM: number;           // £m to generators (PPA)
   cumMarketNetM: number;         // £m net to market (buys - export)
+  cumMarketBuyM: number;         // £m gross paid to market (shortfall + battery charge)
+  cumExportIncomeM: number;      // £m received from selling surplus to market
+  cumHedgeM: number;             // £m cumulative net instrument payoffs (balancing residual of margin)
+  wxTemp: number | null;         // °C temperature_2m
+  wxWind10: number | null;       // m/s wind_speed_10m
+  wxWind100: number | null;      // m/s wind_speed_100m
+  wxWtdWind: number | null;      // m/s weighted wind-farm wind speed 100m
+  wxWtdTemp: number | null;      // °C weighted temperature
   // cost-to-serve breakdown this bar, £k (collar/cap/proxy shown as negative = cost reducers)
   serveCostK: number;
   mktShortfallK: number;
@@ -61,7 +69,8 @@ export interface SnapRow {
   systemLoadGW: number;
   barCoveragePct: number;    // instantaneous (this bar)
   coveragePct: number;       // cumulative
-  offProductionPct: number;  // cumulative
+  genDeficitPct: number;     // cumulative — periods own gen < load
+  imbalanceRatePct: number;  // cumulative — market-bought MWh / consumer load MWh
   batteryRevK: number;       // £k per bar
   hedgePayoffK: number;      // collar+cap per bar, £k
   exportIncomeK: number;     // surplus export income per bar, £k
@@ -69,9 +78,15 @@ export interface SnapRow {
 }
 
 export function SystemLoadPanel({ data }: { data: SnapRow[] }) {
+  const [showWeather, setShowWeather] = useState(false);
   return (
     <div className="card">
-      <h2>Total system load (GB) <span className="tag real">real</span></h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h2 style={{ margin: 0 }}>Total system load (GB) <span className="tag real">real</span></h2>
+        <button onClick={() => setShowWeather((s) => !s)} style={{ background: showWeather ? "#1f6feb" : "#21262d", padding: "4px 10px", fontSize: 12 }}>
+          {showWeather ? "× hide weather" : "⊞ weather data"}
+        </button>
+      </div>
       <ResponsiveContainer width="100%" height={170}>
         <AreaChart data={data} syncId={SYNC}>
           <CartesianGrid stroke={GRID} />
@@ -80,6 +95,31 @@ export function SystemLoadPanel({ data }: { data: SnapRow[] }) {
           <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number) => [`${v} GW`, "system load"]} />
           <Area dataKey="systemLoadGW" name="system load" stroke="#58a6ff" fill="#58a6ff22" strokeWidth={2} />
         </AreaChart>
+      </ResponsiveContainer>
+      {showWeather && <WeatherBreakdown data={data} />}
+    </div>
+  );
+}
+
+/** All real weather series we hold: temperature(s) on the left axis, wind speed(s) on the right. */
+function WeatherBreakdown({ data }: { data: SnapRow[] }) {
+  return (
+    <div style={{ marginTop: 12, borderTop: "1px solid #21262d", paddingTop: 10 }}>
+      <div className="muted" style={{ marginBottom: 4 }}>Real weather — temperature (°C, left) and wind speed (m/s, right), bar-averaged</div>
+      <ResponsiveContainer width="100%" height={210}>
+        <ComposedChart data={data} syncId={SYNC}>
+          <CartesianGrid stroke={GRID} />
+          <XAxis dataKey="date" {...AXIS} minTickGap={40} />
+          <YAxis yAxisId="t" {...AXIS} label={{ value: "°C", angle: -90, fill: "#8b949e", fontSize: 10 }} />
+          <YAxis yAxisId="w" orientation="right" {...AXIS} label={{ value: "m/s", angle: 90, fill: "#8b949e", fontSize: 10 }} />
+          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [v == null ? "—" : `${v}${n.includes("wind") ? " m/s" : " °C"}`, n]} />
+          <Legend wrapperStyle={{ fontSize: 10 }} />
+          <Line yAxisId="t" dataKey="wxTemp" name="temp 2m" stroke="#f0883e" dot={false} />
+          <Line yAxisId="t" dataKey="wxWtdTemp" name="temp (weighted)" stroke="#f2cc60" dot={false} strokeDasharray="4 3" />
+          <Line yAxisId="w" dataKey="wxWind10" name="wind 10m" stroke="#56d4dd" dot={false} />
+          <Line yAxisId="w" dataKey="wxWind100" name="wind 100m" stroke="#58a6ff" dot={false} />
+          <Line yAxisId="w" dataKey="wxWtdWind" name="wind (weighted farms)" stroke="#3fb950" dot={false} strokeWidth={2} />
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
@@ -124,7 +164,7 @@ export function PriceComparePanel({ data }: { data: SnapRow[] }) {
           <Legend wrapperStyle={{ fontSize: 11 }} />
           <Line dataKey="marketPrice" name="market (day-ahead)" stroke="#58a6ff" dot={false} />
           <Line dataKey="imbalancePrice" name="cash-out (imbalance)" stroke="#f85149" dot={false} strokeDasharray="2 2" />
-          <Line dataKey="effPricePaid" name="effective price paid (all-in)" stroke="#7ee787" dot={false} strokeWidth={2} />
+          <Line dataKey="buyPriceHedged" name="price paid: gen + shortfall (after hedges)" stroke="#7ee787" dot={false} strokeWidth={2} />
           <Line dataKey="consumerPaid" name="retail tariff" stroke="#d29922" dot={false} strokeDasharray="4 3" />
         </LineChart>
       </ResponsiveContainer>
@@ -205,9 +245,20 @@ export function PriceStackPanel({ data }: { data: SnapRow[] }) {
 }
 
 export function PnlBySidePanel({ data }: { data: SnapRow[] }) {
+  const [breakdown, setBreakdown] = useState<"none" | "margin" | "market">("none");
   return (
     <div className="card">
-      <h2>Cumulative P&L by side <span className="tag real">real</span></h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <h2 style={{ margin: 0 }}>Cumulative P&L by side <span className="tag real">real</span></h2>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => setBreakdown(breakdown === "margin" ? "none" : "margin")} style={{ background: breakdown === "margin" ? "#1f6feb" : "#21262d", padding: "4px 10px", fontSize: 12 }}>
+            {breakdown === "margin" ? "× hide margin" : "⊞ margin"}
+          </button>
+          <button onClick={() => setBreakdown(breakdown === "market" ? "none" : "market")} style={{ background: breakdown === "market" ? "#1f6feb" : "#21262d", padding: "4px 10px", fontSize: 12 }}>
+            {breakdown === "market" ? "× hide market" : "⊞ market net"}
+          </button>
+        </div>
+      </div>
       <ResponsiveContainer width="100%" height={185}>
         <LineChart data={data} syncId={SYNC}>
           <CartesianGrid stroke={GRID} />
@@ -222,6 +273,68 @@ export function PnlBySidePanel({ data }: { data: SnapRow[] }) {
         </LineChart>
       </ResponsiveContainer>
       <p className="muted">Money flow: consumers pay us, we pay generators (PPA) and the market (net of exports); what's left is our margin.</p>
+      {breakdown === "margin" && <MarginBreakdown data={data} />}
+      {breakdown === "market" && <MarketNetBreakdown data={data} />}
+    </div>
+  );
+}
+
+/** Margin = consumer revenue − PPA − market-net + instrument payoffs. Inflows up, outflows down; net = margin line. */
+function MarginBreakdown({ data }: { data: SnapRow[] }) {
+  const d = data.map((r) => ({
+    date: r.date,
+    retail: r.cumRetailM,
+    genCost: -r.cumGenCostM,
+    marketNet: -r.cumMarketNetM,
+    hedges: r.cumHedgeM,
+    margin: r.cumMarginM,
+  }));
+  return (
+    <div style={{ marginTop: 12, borderTop: "1px solid #21262d", paddingTop: 10 }}>
+      <div className="muted" style={{ marginBottom: 4 }}>Margin decomposition (£m cumulative): inflows up, outflows down; net = margin line</div>
+      <ResponsiveContainer width="100%" height={210}>
+        <ComposedChart data={d} syncId={SYNC} stackOffset="sign">
+          <CartesianGrid stroke={GRID} />
+          <XAxis dataKey="date" {...AXIS} minTickGap={40} />
+          <YAxis {...AXIS} label={{ value: "£m", angle: -90, fill: "#8b949e", fontSize: 10 }} />
+          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}m`, n]} />
+          <Legend wrapperStyle={{ fontSize: 10 }} />
+          <ReferenceLine y={0} stroke="#8b949e" />
+          <Bar dataKey="retail" name="+ consumers (revenue)" stackId="m" fill="#d29922" />
+          <Bar dataKey="genCost" name="− generators (PPA)" stackId="m" fill="#2ea043" />
+          <Bar dataKey="marketNet" name="− market (net)" stackId="m" fill="#58a6ff" />
+          <Bar dataKey="hedges" name="± instruments (net payoff)" stackId="m" fill="#a371f7" />
+          <Line dataKey="margin" name="= our margin" stroke="#7ee787" dot={false} strokeWidth={2} />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+/** Market-net = gross buys (shortfall + battery charge) − surplus export income. */
+function MarketNetBreakdown({ data }: { data: SnapRow[] }) {
+  const d = data.map((r) => ({
+    date: r.date,
+    buys: r.cumMarketBuyM,
+    exports: -r.cumExportIncomeM,
+    net: r.cumMarketNetM,
+  }));
+  return (
+    <div style={{ marginTop: 12, borderTop: "1px solid #21262d", paddingTop: 10 }}>
+      <div className="muted" style={{ marginBottom: 4 }}>Market-net decomposition (£m cumulative): money out to market up, export income down; net = line</div>
+      <ResponsiveContainer width="100%" height={210}>
+        <ComposedChart data={d} syncId={SYNC} stackOffset="sign">
+          <CartesianGrid stroke={GRID} />
+          <XAxis dataKey="date" {...AXIS} minTickGap={40} />
+          <YAxis {...AXIS} label={{ value: "£m", angle: -90, fill: "#8b949e", fontSize: 10 }} />
+          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}m`, n]} />
+          <Legend wrapperStyle={{ fontSize: 10 }} />
+          <ReferenceLine y={0} stroke="#8b949e" />
+          <Bar dataKey="buys" name="+ buys (shortfall + charge)" stackId="k" fill="#f85149" />
+          <Bar dataKey="exports" name="− surplus export income" stackId="k" fill="#56d4dd" />
+          <Line dataKey="net" name="= us ↔ market (net)" stroke="#58a6ff" dot={false} strokeWidth={2} />
+        </ComposedChart>
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -281,10 +394,11 @@ export function CoveragePanel({ data }: { data: SnapRow[] }) {
           <Legend wrapperStyle={{ fontSize: 11 }} />
           <Line dataKey="barCoveragePct" name="coverage this bar" stroke="#2ea043" dot={false} strokeWidth={2} />
           <Line dataKey="coveragePct" name="coverage cumulative" stroke="#7ee787" dot={false} strokeDasharray="4 3" />
-          <Line dataKey="offProductionPct" name="off-production %" stroke="#f85149" dot={false} />
+          <Line dataKey="genDeficitPct" name="generation-deficit %" stroke="#f85149" dot={false} />
+          <Line dataKey="imbalanceRatePct" name="imbalance rate % (market vol / load)" stroke="#d29922" dot={false} strokeDasharray="2 2" />
         </LineChart>
       </ResponsiveContainer>
-      <p className="muted">Consumer is always served; coverage = share met by own generation vs bought from market.</p>
+      <p className="muted">Coverage = energy share met by own generation (+ battery). Generation-deficit % = share of periods where own generation alone didn't cover load (battery-covered periods included). Imbalance rate = energy share of load bought from the market (= 100 − coverage).</p>
     </div>
   );
 }
@@ -322,7 +436,7 @@ export function MarketDistPanel({ data }: { data: PriceDist[] }) {
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="bin" {...AXIS} unit="" tickFormatter={(x) => `£${x}`} label={{ value: "£/MWh (revealed range)", fill: "#8b949e", fontSize: 10, position: "insideBottom", dy: 12 }} height={40} />
           <YAxis {...AXIS} unit="%" />
-          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number) => [`${(+v).toFixed(1)}% of periods`, "market"]} labelFormatter={(l) => `£${l}/MWh`} />
+          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number) => [`${(+v).toFixed(1)}% of periods`, "market"]} labelFormatter={(l) => `£${l} – £${+l + 20}/MWh`} />
           <Bar dataKey="marketPct" name="market" fill="#58a6ff" />
         </BarChart>
       </ResponsiveContainer>
@@ -333,17 +447,17 @@ export function MarketDistPanel({ data }: { data: PriceDist[] }) {
 export function PaidDistPanel({ data }: { data: PriceDist[] }) {
   return (
     <div className="card">
-      <h2>Distribution of effective price paid (all-in) <span className="tag model">model</span></h2>
+      <h2>Distribution of price paid (gen + shortfall, after hedges) <span className="tag model">model</span></h2>
       <ResponsiveContainer width="100%" height={170}>
         <BarChart data={data}>
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="bin" {...AXIS} tickFormatter={(x) => `£${x}`} label={{ value: "£/MWh paid (revealed range)", fill: "#8b949e", fontSize: 10, position: "insideBottom", dy: 12 }} height={40} />
           <YAxis {...AXIS} unit="%" />
-          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number) => [`${(+v).toFixed(1)}% of MWh consumed`, "paid"]} labelFormatter={(l) => `£${l}/MWh`} />
-          <Bar dataKey="paidPct" name="effective paid" fill="#7ee787" />
+          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number) => [`${(+v).toFixed(1)}% of MWh procured`, "paid"]} labelFormatter={(l) => `£${l} – £${+l + 20}/MWh`} />
+          <Bar dataKey="paidPct" name="price paid" fill="#7ee787" />
         </BarChart>
       </ResponsiveContainer>
-      <p className="muted">All-in price the consumer actually paid per MWh — after own generation, battery and every instrument — load-weighted, on the same axis as the market. Hedging pulls the high-price tail in.</p>
+      <p className="muted">Price paid per MWh to procure (PPA + spot capped/floored by the buy-side options), procured-MWh-weighted, on the same axis as the market. Buy-side options squeeze the high-price tail in — and it never goes below zero.</p>
     </div>
   );
 }

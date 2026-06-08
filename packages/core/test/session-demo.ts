@@ -1,6 +1,6 @@
 /**
  * R1 verification: drive a ReplaySession step-by-step on real data and check the
- * physical coverage / off-production accounting and instrument economics.
+ * physical coverage / generation-deficit accounting and instrument economics.
  */
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -47,19 +47,19 @@ while (!s.done) { last = s.step()!; step++; tGen += last.srcGenMwh; tBat += last
 console.log("\n=== Contract result (1y, real, OPTIMISED sourcing) ===");
 const tot = tGen + tBat + tMkt;
 console.log(`sourcing mix: own gen ${f((100 * tGen) / tot, 1)}%  battery ${f((100 * tBat) / tot, 1)}%  market ${f((100 * tMkt) / tot, 1)}%`);
-console.log(`coverage ${f(last!.coveragePct, 1)}% (self-supplied)   off-production ${f(last!.offProductionPct, 1)}% of periods`);
+console.log(`coverage ${f(last!.coveragePct, 1)}% (self-supplied)   generation-deficit ${f(last!.genDeficitPct, 1)}% of periods   imbalance rate ${f(last!.imbalanceRatePct, 1)}%`);
 console.log(`generation ${f(last!.cumGenMwh / 1e3, 1)} GWh  consumer ${f(last!.cumConsumerMwh / 1e3, 1)} GWh  market-bought ${f(last!.cumShortfallMwh / 1e3, 1)} GWh`);
 console.log(`running capture £${f(last!.runningCapture)}/MWh   total margin ${m(last!.cumMargin)}`);
 console.log(`\ncost to serve load: with contract ${m(last!.cumPaidWith)}  without (spot-only) ${m(last!.cumPaidWithout)}  saving ${m(last!.cumPaidWithout - last!.cumPaidWith)}`);
 console.log(`surplus export income (separate): ${m(last!.cumExportIncome)}`);
-console.log(`all-in effective price = ${f(last!.cumPaidWith / last!.cumConsumerMwh)} £/MWh (cost to serve load)`);
+console.log(`price paid to procure (gen+shortfall, after hedges) = ${f(last!.cumBuyPricePaid)} £/MWh`);
 console.log("\n=== P&L by side (cumulative) ===");
 console.log(`  consumer side : pay us ${m(last!.cumRetailRevenue)}  @ ${f(last!.cumRetailRevenue / last!.cumConsumerMwh)} £/MWh (tariff)`);
 console.log(`  generator side: we pay ${m(last!.cumGenCost)}  @ ${f(last!.cumGenCost / last!.cumGenMwh)} £/MWh (PPA)`);
 console.log(`  market side   : net market ${m(last!.cumMarketBuyCost - last!.cumExportIncome)} (buys ${m(last!.cumMarketBuyCost)} - export ${m(last!.cumExportIncome)})`);
 console.log(`  our side      : margin ${m(last!.cumMargin)} = retail - PPA - market + export + hedges`);
 const hist = s.priceHistograms(8);
-console.log(`price distributions (market vs all-in paid), ${s.paidCount} periods:`);
+console.log(`price distributions (market vs price paid), ${s.paidCount} periods:`);
 const maxc = Math.max(...hist.map((h) => h.paidPct));
 for (const h of hist) console.log(`  £${String(h.bin).padStart(6)}  mkt ${h.marketPct.toFixed(1).padStart(5)}%  paid ${"#".repeat(Math.round((30 * h.paidPct) / (maxc || 1)))} ${h.paidPct.toFixed(1)}%`);
-console.log("\nOK: session steps + coverage/off-production + bought-price distribution verified on real data.");
+console.log("\nOK: session steps + coverage/generation-deficit + bought-price distribution verified on real data.");
