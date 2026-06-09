@@ -140,3 +140,40 @@ export function structuralSummary(ds: Dataset, book: SupplyBook) {
 
 const round = (x: number) => Math.round(x * 100) / 100;
 export { std };
+
+/** Full time-series at daily resolution — daily-averaged rows for the entire dataset. */
+export function fullTimeSeries(ds: Dataset): {
+  date: string; price: number; loadGW: number; windGW: number;
+  solarGW: number; nuclearGW: number; fossilGasGW: number;
+}[] {
+  const STRIDE = 48; // half-hourly periods per day
+  const startMs = new Date(ds.meta.start ?? "2019-01-01").getTime();
+  const daPrice = ds.col("daPrice"), load = ds.col("load");
+  const windOff = ds.col("windOffshore"), windOn = ds.col("windOnshore");
+  const solar = ds.col("solar"), nuclear = ds.col("nuclear"), fossilGas = ds.col("fossilGas");
+  const out: ReturnType<typeof fullTimeSeries> = [];
+  for (let i = 0; i + STRIDE <= ds.rows; i += STRIDE) {
+    const end = Math.min(i + STRIDE, ds.rows);
+    const ph = (end - i) * 0.5; // total hours in window
+    let ps = 0, pn = 0, ls = 0, ws = 0, ss = 0, ns = 0, gs = 0;
+    for (let j = i; j < end; j++) {
+      const p = daPrice[j]!; if (isNum(p)) { ps += p; pn++; }
+      const l = load[j]!; if (isNum(l)) ls += l;
+      const wo = windOff[j]!; if (isNum(wo)) ws += wo;
+      const wn = windOn[j]!; if (isNum(wn)) ws += wn;
+      const sl = solar[j]!; if (isNum(sl)) ss += sl;
+      const nu = nuclear[j]!; if (isNum(nu)) ns += nu;
+      const fg = fossilGas[j]!; if (isNum(fg)) gs += fg;
+    }
+    out.push({
+      date: new Date(startMs + i * 30 * 60 * 1000).toISOString().slice(0, 10),
+      price: pn ? round(ps / pn) : NaN,
+      loadGW: round(ls / ph / 1000),
+      windGW: round(ws / ph / 1000),
+      solarGW: round(ss / ph / 1000),
+      nuclearGW: round(ns / ph / 1000),
+      fossilGasGW: round(gs / ph / 1000),
+    });
+  }
+  return out;
+}

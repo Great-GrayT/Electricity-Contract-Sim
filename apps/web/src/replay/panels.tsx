@@ -35,27 +35,26 @@ export interface SnapRow {
   srcBatteryMwh: number;
   srcMarketMwh: number;
   batterySocMWh: number;
-  cumMarginM: number;        // £m
-  buyPriceHedged: number | null; // price paid to procure (gen+shortfall), spot capped by buy-side options, £/MWh ≥ 0
-  cumPaidWithM: number;          // £m cumulative, with contract
-  cumPaidWithoutM: number;       // £m cumulative, spot-only (no contract)
+  cumMarginM: number;
+  buyPriceHedged: number | null;
+  cumPaidWithM: number;
+  cumPaidWithoutM: number;
   marketPrice: number | null;
-  imbalancePrice: number | null;   // real cash-out (system buy) price, £/MWh
+  imbalancePrice: number | null;
   consumerPaid: number;
-  ppaPrice: number;              // £/MWh we pay generators
-  ourBuyPrice: number | null;    // weighted-avg £/MWh we paid to source this bar
-  cumRetailM: number;            // £m from consumers
-  cumGenCostM: number;           // £m to generators (PPA)
-  cumMarketNetM: number;         // £m net to market (buys - export)
-  cumMarketBuyM: number;         // £m gross paid to market (shortfall + battery charge)
-  cumExportIncomeM: number;      // £m received from selling surplus to market
-  cumHedgeM: number;             // £m cumulative net instrument payoffs (balancing residual of margin)
-  wxTemp: number | null;         // °C temperature_2m
-  wxWind10: number | null;       // m/s wind_speed_10m
-  wxWind100: number | null;      // m/s wind_speed_100m
-  wxWtdWind: number | null;      // m/s weighted wind-farm wind speed 100m
-  wxWtdTemp: number | null;      // °C weighted temperature
-  // cost-to-serve breakdown this bar, £k (collar/cap/proxy shown as negative = cost reducers)
+  ppaPrice: number;
+  ourBuyPrice: number | null;
+  cumRetailM: number;
+  cumGenCostM: number;
+  cumMarketNetM: number;
+  cumMarketBuyM: number;
+  cumExportIncomeM: number;
+  cumHedgeM: number;
+  wxTemp: number | null;
+  wxWind10: number | null;
+  wxWind100: number | null;
+  wxWtdWind: number | null;
+  wxWtdTemp: number | null;
   serveCostK: number;
   mktShortfallK: number;
   chargeCostK: number;
@@ -63,19 +62,51 @@ export interface SnapRow {
   collarReduceK: number;
   capReduceK: number;
   proxyReduceK: number;
-  structReduceK: number;   // buy-side structured overlays (swap+swing+quanto+dsr), £k, cost reducer (negated)
-  structPayK: number;      // same overlays as a positive payoff, £k
-  genHedgeK: number;       // generation-side overlays (floor+cfd+windIndex), £k revenue stabiliser
+  structReduceK: number;
+  structPayK: number;
+  genHedgeK: number;
   systemLoadGW: number;
-  barCoveragePct: number;    // instantaneous (this bar)
-  coveragePct: number;       // cumulative
-  genDeficitPct: number;     // cumulative, periods own gen < load
-  imbalanceRatePct: number;  // cumulative, market-bought MWh / consumer load MWh
-  batteryRevK: number;       // £k per bar
-  hedgePayoffK: number;      // collar+cap per bar, £k
-  exportIncomeK: number;     // surplus export income per bar, £k
-  [fuel: string]: number | string | null; // per-fuel GW for the stack
+  barCoveragePct: number;
+  coveragePct: number;
+  genDeficitPct: number;
+  imbalanceRatePct: number;
+  batteryRevK: number;
+  hedgePayoffK: number;
+  exportIncomeK: number;
+  [fuel: string]: number | string | null;
 }
+
+export type PriceDist = { bin: number; marketPct: number; paidPct: number };
+
+// ---------------------------------------------------------------------------
+// Shared legend-toggle hook — click a legend item to show/hide that series
+// ---------------------------------------------------------------------------
+function useLegendToggle() {
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const toggle = (e: { dataKey?: unknown }) => {
+    const key = String(e?.dataKey ?? "");
+    if (!key) return;
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+  const hide = (key: string) => hidden.has(key);
+  const lp = {
+    wrapperStyle: { fontSize: 10, cursor: "pointer" },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onClick: toggle as any,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    formatter: (value: string, entry: any) => {
+      const off = hidden.has(String(entry?.dataKey ?? ""));
+      return <span style={{ opacity: off ? 0.3 : 1, textDecoration: off ? "line-through" : "none" }}>{value}</span>;
+    },
+  };
+  return { hide, lp };
+}
+
+// ---------------------------------------------------------------------------
 
 export function SystemLoadPanel({ data }: { data: SnapRow[] }) {
   const [showWeather, setShowWeather] = useState(false);
@@ -101,8 +132,8 @@ export function SystemLoadPanel({ data }: { data: SnapRow[] }) {
   );
 }
 
-/** All real weather series we hold: temperature(s) on the left axis, wind speed(s) on the right. */
 function WeatherBreakdown({ data }: { data: SnapRow[] }) {
+  const { hide, lp } = useLegendToggle();
   return (
     <div style={{ marginTop: 12, borderTop: "1px solid #21262d", paddingTop: 10 }}>
       <div className="muted" style={{ marginBottom: 4 }}>Real weather, temperature (°C, left) and wind speed (m/s, right), bar-averaged</div>
@@ -113,12 +144,12 @@ function WeatherBreakdown({ data }: { data: SnapRow[] }) {
           <YAxis yAxisId="t" {...AXIS} label={{ value: "°C", angle: -90, fill: "#8b949e", fontSize: 10 }} />
           <YAxis yAxisId="w" orientation="right" {...AXIS} label={{ value: "m/s", angle: 90, fill: "#8b949e", fontSize: 10 }} />
           <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [v == null ? "—" : `${v}${n.includes("wind") ? " m/s" : " °C"}`, n]} />
-          <Legend wrapperStyle={{ fontSize: 10 }} />
-          <Line yAxisId="t" dataKey="wxTemp" name="temp 2m" stroke="#f0883e" dot={false} />
-          <Line yAxisId="t" dataKey="wxWtdTemp" name="temp (weighted)" stroke="#f2cc60" dot={false} strokeDasharray="4 3" />
-          <Line yAxisId="w" dataKey="wxWind10" name="wind 10m" stroke="#56d4dd" dot={false} />
-          <Line yAxisId="w" dataKey="wxWind100" name="wind 100m" stroke="#58a6ff" dot={false} />
-          <Line yAxisId="w" dataKey="wxWtdWind" name="wind (weighted farms)" stroke="#3fb950" dot={false} strokeWidth={2} />
+          <Legend {...lp} />
+          <Line yAxisId="t" dataKey="wxTemp" name="temp 2m" stroke="#f0883e" dot={false} hide={hide("wxTemp")} />
+          <Line yAxisId="t" dataKey="wxWtdTemp" name="temp (weighted)" stroke="#f2cc60" dot={false} strokeDasharray="4 3" hide={hide("wxWtdTemp")} />
+          <Line yAxisId="w" dataKey="wxWind10" name="wind 10m" stroke="#56d4dd" dot={false} hide={hide("wxWind10")} />
+          <Line yAxisId="w" dataKey="wxWind100" name="wind 100m" stroke="#58a6ff" dot={false} hide={hide("wxWind100")} />
+          <Line yAxisId="w" dataKey="wxWtdWind" name="wind (weighted farms)" stroke="#3fb950" dot={false} strokeWidth={2} hide={hide("wxWtdWind")} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>
@@ -126,6 +157,7 @@ function WeatherBreakdown({ data }: { data: SnapRow[] }) {
 }
 
 export function ProductionStackPanel({ data }: { data: SnapRow[] }) {
+  const { hide, lp } = useLegendToggle();
   return (
     <div className="card">
       <h2>Total production by type, renewables → fossils <span className="tag real">real</span></h2>
@@ -135,9 +167,9 @@ export function ProductionStackPanel({ data }: { data: SnapRow[] }) {
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "GW", angle: -90, fill: "#8b949e", fontSize: 10 }} />
           <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`${v} GW`, n]} />
-          <Legend wrapperStyle={{ fontSize: 10 }} />
+          <Legend {...lp} />
           {FUEL_SERIES.map((f) => (
-            <Area key={f.key} dataKey={f.key} name={f.label} stackId="gen" stroke={f.color} fill={f.color} fillOpacity={0.85} />
+            <Area key={f.key} dataKey={f.key} name={f.label} stackId="gen" stroke={f.color} fill={f.color} fillOpacity={0.85} hide={hide(f.key)} />
           ))}
         </AreaChart>
       </ResponsiveContainer>
@@ -146,6 +178,7 @@ export function ProductionStackPanel({ data }: { data: SnapRow[] }) {
 }
 
 export function PriceComparePanel({ data }: { data: SnapRow[] }) {
+  const { hide, lp } = useLegendToggle();
   const [showBreakdown, setShowBreakdown] = useState(false);
   return (
     <div className="card">
@@ -161,11 +194,11 @@ export function PriceComparePanel({ data }: { data: SnapRow[] }) {
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "£/MWh", angle: -90, fill: "#8b949e", fontSize: 10 }} />
           <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [v == null ? "—" : `£${v}/MWh`, n]} />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Line dataKey="marketPrice" name="market (day-ahead)" stroke="#58a6ff" dot={false} />
-          <Line dataKey="imbalancePrice" name="cash-out (imbalance)" stroke="#f85149" dot={false} strokeDasharray="2 2" />
-          <Line dataKey="buyPriceHedged" name="price paid: gen + shortfall (after hedges)" stroke="#7ee787" dot={false} strokeWidth={2} />
-          <Line dataKey="consumerPaid" name="retail tariff" stroke="#d29922" dot={false} strokeDasharray="4 3" />
+          <Legend {...lp} wrapperStyle={{ ...lp.wrapperStyle, fontSize: 11 }} />
+          <Line dataKey="marketPrice" name="market (day-ahead)" stroke="#58a6ff" dot={false} hide={hide("marketPrice")} />
+          <Line dataKey="imbalancePrice" name="cash-out (imbalance)" stroke="#f85149" dot={false} strokeDasharray="2 2" hide={hide("imbalancePrice")} />
+          <Line dataKey="buyPriceHedged" name="price paid: gen + shortfall (after hedges)" stroke="#7ee787" dot={false} strokeWidth={2} hide={hide("buyPriceHedged")} />
+          <Line dataKey="consumerPaid" name="retail tariff" stroke="#d29922" dot={false} strokeDasharray="4 3" hide={hide("consumerPaid")} />
         </LineChart>
       </ResponsiveContainer>
       {showBreakdown && <CostBreakdown data={data} />}
@@ -173,8 +206,8 @@ export function PriceComparePanel({ data }: { data: SnapRow[] }) {
   );
 }
 
-/** Stacked decomposition of the per-bar cost to serve load (£k): costs up, hedge payouts down. */
 function CostBreakdown({ data }: { data: SnapRow[] }) {
+  const { hide, lp } = useLegendToggle();
   return (
     <div style={{ marginTop: 12, borderTop: "1px solid #21262d", paddingTop: 10 }}>
       <div className="muted" style={{ marginBottom: 4 }}>Cost-to-serve breakdown per bar (£k), costs above zero, hedge payouts below (they reduce cost); net = line</div>
@@ -184,16 +217,16 @@ function CostBreakdown({ data }: { data: SnapRow[] }) {
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "£k/bar", angle: -90, fill: "#8b949e", fontSize: 10 }} />
           <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}k`, n]} />
-          <Legend wrapperStyle={{ fontSize: 10 }} />
+          <Legend {...lp} />
           <ReferenceLine y={0} stroke="#8b949e" />
-          <Bar dataKey="ppaServeK" name="PPA cost (own gen kept)" stackId="c" fill="#2ea043" />
-          <Bar dataKey="mktShortfallK" name="market shortfall" stackId="c" fill="#f85149" />
-          <Bar dataKey="chargeCostK" name="battery charge" stackId="c" fill="#58a6ff" />
-          <Bar dataKey="collarReduceK" name="− collar payout" stackId="c" fill="#d2a8ff" />
-          <Bar dataKey="capReduceK" name="− cap payout" stackId="c" fill="#a371f7" />
-          <Bar dataKey="structReduceK" name="− swap/swing/quanto/DSR" stackId="c" fill="#1f6feb" />
-          <Bar dataKey="proxyReduceK" name="− proxy payout" stackId="c" fill="#56d4dd" />
-          <Line dataKey="serveCostK" name="net serve cost" stroke="#e6edf3" dot={false} strokeWidth={2} />
+          <Bar dataKey="ppaServeK" name="PPA cost (own gen kept)" stackId="c" fill="#2ea043" hide={hide("ppaServeK")} />
+          <Bar dataKey="mktShortfallK" name="market shortfall" stackId="c" fill="#f85149" hide={hide("mktShortfallK")} />
+          <Bar dataKey="chargeCostK" name="battery charge" stackId="c" fill="#58a6ff" hide={hide("chargeCostK")} />
+          <Bar dataKey="collarReduceK" name="− collar payout" stackId="c" fill="#d2a8ff" hide={hide("collarReduceK")} />
+          <Bar dataKey="capReduceK" name="− cap payout" stackId="c" fill="#a371f7" hide={hide("capReduceK")} />
+          <Bar dataKey="structReduceK" name="− swap/swing/quanto/DSR" stackId="c" fill="#1f6feb" hide={hide("structReduceK")} />
+          <Bar dataKey="proxyReduceK" name="− proxy payout" stackId="c" fill="#56d4dd" hide={hide("proxyReduceK")} />
+          <Line dataKey="serveCostK" name="net serve cost" stroke="#e6edf3" dot={false} strokeWidth={2} hide={hide("serveCostK")} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>
@@ -201,6 +234,7 @@ function CostBreakdown({ data }: { data: SnapRow[] }) {
 }
 
 export function SourcingPanel({ data }: { data: SnapRow[] }) {
+  const { hide, lp } = useLegendToggle();
   return (
     <div className="card">
       <h2>Optimised sourcing decision: gen → battery → market <span className="tag real">real</span></h2>
@@ -211,11 +245,11 @@ export function SourcingPanel({ data }: { data: SnapRow[] }) {
           <YAxis yAxisId="l" {...AXIS} label={{ value: "MWh/bar", angle: -90, fill: "#8b949e", fontSize: 10 }} />
           <YAxis yAxisId="r" orientation="right" {...AXIS} label={{ value: "SoC MWh", angle: 90, fill: "#8b949e", fontSize: 10 }} />
           <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`${v}${n === "battery SoC" ? " MWh" : " MWh"}`, n]} />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Area yAxisId="l" dataKey="srcGenMwh" name="own generation" stackId="src" stroke="#2ea043" fill="#2ea043cc" />
-          <Area yAxisId="l" dataKey="srcBatteryMwh" name="battery" stackId="src" stroke="#a371f7" fill="#a371f7cc" />
-          <Area yAxisId="l" dataKey="srcMarketMwh" name="market (off-prod)" stackId="src" stroke="#f85149" fill="#f85149aa" />
-          <Line yAxisId="r" dataKey="batterySocMWh" name="battery SoC" stroke="#58a6ff" dot={false} strokeWidth={1} />
+          <Legend {...lp} wrapperStyle={{ ...lp.wrapperStyle, fontSize: 11 }} />
+          <Area yAxisId="l" dataKey="srcGenMwh" name="own generation" stackId="src" stroke="#2ea043" fill="#2ea043cc" hide={hide("srcGenMwh")} />
+          <Area yAxisId="l" dataKey="srcBatteryMwh" name="battery" stackId="src" stroke="#a371f7" fill="#a371f7cc" hide={hide("srcBatteryMwh")} />
+          <Area yAxisId="l" dataKey="srcMarketMwh" name="market (off-prod)" stackId="src" stroke="#f85149" fill="#f85149aa" hide={hide("srcMarketMwh")} />
+          <Line yAxisId="r" dataKey="batterySocMWh" name="battery SoC" stroke="#58a6ff" dot={false} strokeWidth={1} hide={hide("batterySocMWh")} />
         </ComposedChart>
       </ResponsiveContainer>
       <p className="muted">Each bar: load met cheapest-first, own generation, then battery (charged cheap / discharged dear), then market.</p>
@@ -224,6 +258,7 @@ export function SourcingPanel({ data }: { data: SnapRow[] }) {
 }
 
 export function PriceStackPanel({ data }: { data: SnapRow[] }) {
+  const { hide, lp } = useLegendToggle();
   return (
     <div className="card">
       <h2>Price stack: generator → us → consumer <span className="tag real">real</span></h2>
@@ -233,10 +268,10 @@ export function PriceStackPanel({ data }: { data: SnapRow[] }) {
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "£/MWh", angle: -90, fill: "#8b949e", fontSize: 10 }} />
           <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [v == null ? "—" : `£${v}/MWh`, n]} />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Line dataKey="consumerPaid" name="consumer pays us (tariff)" stroke="#d29922" dot={false} strokeWidth={2} />
-          <Line dataKey="marketPrice" name="market (day-ahead)" stroke="#58a6ff" dot={false} />
-          <Line dataKey="ppaPrice" name="we pay generators (PPA)" stroke="#2ea043" dot={false} strokeDasharray="4 3" />
+          <Legend {...lp} wrapperStyle={{ ...lp.wrapperStyle, fontSize: 11 }} />
+          <Line dataKey="consumerPaid" name="consumer pays us (tariff)" stroke="#d29922" dot={false} strokeWidth={2} hide={hide("consumerPaid")} />
+          <Line dataKey="marketPrice" name="market (day-ahead)" stroke="#58a6ff" dot={false} hide={hide("marketPrice")} />
+          <Line dataKey="ppaPrice" name="we pay generators (PPA)" stroke="#2ea043" dot={false} strokeDasharray="4 3" hide={hide("ppaPrice")} />
         </LineChart>
       </ResponsiveContainer>
       <p className="muted">Consumer tariff (sell) at top, market in the middle, PPA (buy) at the bottom.</p>
@@ -245,11 +280,12 @@ export function PriceStackPanel({ data }: { data: SnapRow[] }) {
 }
 
 export function PnlBySidePanel({ data }: { data: SnapRow[] }) {
+  const { hide, lp } = useLegendToggle();
   const [breakdown, setBreakdown] = useState<"none" | "margin" | "market">("none");
   return (
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <h2 style={{ margin: 0 }}>Cumulative P&L by side <span className="tag real">real</span></h2>
+        <h2 style={{ margin: 0 }}>Cumulative P&amp;L by side <span className="tag real">real</span></h2>
         <div style={{ display: "flex", gap: 6 }}>
           <button onClick={() => setBreakdown(breakdown === "margin" ? "none" : "margin")} style={{ background: breakdown === "margin" ? "#1f6feb" : "#21262d", padding: "4px 10px", fontSize: 12 }}>
             {breakdown === "margin" ? "× hide margin" : "⊞ margin"}
@@ -265,11 +301,11 @@ export function PnlBySidePanel({ data }: { data: SnapRow[] }) {
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "£m", angle: -90, fill: "#8b949e", fontSize: 10 }} />
           <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}m`, n]} />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Line dataKey="cumRetailM" name="consumers → us (revenue)" stroke="#d29922" dot={false} strokeWidth={2} />
-          <Line dataKey="cumGenCostM" name="us → generators (PPA)" stroke="#2ea043" dot={false} />
-          <Line dataKey="cumMarketNetM" name="us ↔ market (net)" stroke="#58a6ff" dot={false} />
-          <Line dataKey="cumMarginM" name="our margin" stroke="#7ee787" dot={false} strokeWidth={2} />
+          <Legend {...lp} wrapperStyle={{ ...lp.wrapperStyle, fontSize: 11 }} />
+          <Line dataKey="cumRetailM" name="consumers → us (revenue)" stroke="#d29922" dot={false} strokeWidth={2} hide={hide("cumRetailM")} />
+          <Line dataKey="cumGenCostM" name="us → generators (PPA)" stroke="#2ea043" dot={false} hide={hide("cumGenCostM")} />
+          <Line dataKey="cumMarketNetM" name="us ↔ market (net)" stroke="#58a6ff" dot={false} hide={hide("cumMarketNetM")} />
+          <Line dataKey="cumMarginM" name="our margin" stroke="#7ee787" dot={false} strokeWidth={2} hide={hide("cumMarginM")} />
         </LineChart>
       </ResponsiveContainer>
       <p className="muted">Money flow: consumers pay us, we pay generators (PPA) and the market (net of exports); what's left is our margin.</p>
@@ -279,8 +315,8 @@ export function PnlBySidePanel({ data }: { data: SnapRow[] }) {
   );
 }
 
-/** Margin = consumer revenue − PPA − market-net + instrument payoffs. Inflows up, outflows down; net = margin line. */
 function MarginBreakdown({ data }: { data: SnapRow[] }) {
+  const { hide, lp } = useLegendToggle();
   const d = data.map((r) => ({
     date: r.date,
     retail: r.cumRetailM,
@@ -298,21 +334,21 @@ function MarginBreakdown({ data }: { data: SnapRow[] }) {
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "£m", angle: -90, fill: "#8b949e", fontSize: 10 }} />
           <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}m`, n]} />
-          <Legend wrapperStyle={{ fontSize: 10 }} />
+          <Legend {...lp} />
           <ReferenceLine y={0} stroke="#8b949e" />
-          <Bar dataKey="retail" name="+ consumers (revenue)" stackId="m" fill="#d29922" />
-          <Bar dataKey="genCost" name="− generators (PPA)" stackId="m" fill="#2ea043" />
-          <Bar dataKey="marketNet" name="− market (net)" stackId="m" fill="#58a6ff" />
-          <Bar dataKey="hedges" name="± instruments (net payoff)" stackId="m" fill="#a371f7" />
-          <Line dataKey="margin" name="= our margin" stroke="#7ee787" dot={false} strokeWidth={2} />
+          <Bar dataKey="retail" name="+ consumers (revenue)" stackId="m" fill="#d29922" hide={hide("retail")} />
+          <Bar dataKey="genCost" name="− generators (PPA)" stackId="m" fill="#2ea043" hide={hide("genCost")} />
+          <Bar dataKey="marketNet" name="− market (net)" stackId="m" fill="#58a6ff" hide={hide("marketNet")} />
+          <Bar dataKey="hedges" name="± instruments (net payoff)" stackId="m" fill="#a371f7" hide={hide("hedges")} />
+          <Line dataKey="margin" name="= our margin" stroke="#7ee787" dot={false} strokeWidth={2} hide={hide("margin")} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
-/** Market-net = gross buys (shortfall + battery charge) − surplus export income. */
 function MarketNetBreakdown({ data }: { data: SnapRow[] }) {
+  const { hide, lp } = useLegendToggle();
   const d = data.map((r) => ({
     date: r.date,
     buys: r.cumMarketBuyM,
@@ -328,11 +364,11 @@ function MarketNetBreakdown({ data }: { data: SnapRow[] }) {
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "£m", angle: -90, fill: "#8b949e", fontSize: 10 }} />
           <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}m`, n]} />
-          <Legend wrapperStyle={{ fontSize: 10 }} />
+          <Legend {...lp} />
           <ReferenceLine y={0} stroke="#8b949e" />
-          <Bar dataKey="buys" name="+ buys (shortfall + charge)" stackId="k" fill="#f85149" />
-          <Bar dataKey="exports" name="− surplus export income" stackId="k" fill="#56d4dd" />
-          <Line dataKey="net" name="= us ↔ market (net)" stroke="#58a6ff" dot={false} strokeWidth={2} />
+          <Bar dataKey="buys" name="+ buys (shortfall + charge)" stackId="k" fill="#f85149" hide={hide("buys")} />
+          <Bar dataKey="exports" name="− surplus export income" stackId="k" fill="#56d4dd" hide={hide("exports")} />
+          <Line dataKey="net" name="= us ↔ market (net)" stroke="#58a6ff" dot={false} strokeWidth={2} hide={hide("net")} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>
@@ -340,6 +376,7 @@ function MarketNetBreakdown({ data }: { data: SnapRow[] }) {
 }
 
 export function PowerPanel({ data }: { data: SnapRow[] }) {
+  const { hide, lp } = useLegendToggle();
   return (
     <div className="card">
       <h2>Power received vs consumer load <span className="tag real">real</span></h2>
@@ -349,10 +386,10 @@ export function PowerPanel({ data }: { data: SnapRow[] }) {
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "MWh/bar", angle: -90, fill: "#8b949e", fontSize: 10 }} />
           <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`${v} MWh`, n]} />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Area dataKey="consumerMwh" name="consumer load" stroke="#d29922" fill="#d2992233" />
-          <Area dataKey="genMwh" name="contracted gen" stroke="#2ea043" fill="#2ea04344" />
-          <Line dataKey="shortfallMwh" name="shortfall (off-prod)" stroke="#f85149" dot={false} strokeWidth={1} />
+          <Legend {...lp} wrapperStyle={{ ...lp.wrapperStyle, fontSize: 11 }} />
+          <Area dataKey="consumerMwh" name="consumer load" stroke="#d29922" fill="#d2992233" hide={hide("consumerMwh")} />
+          <Area dataKey="genMwh" name="contracted gen" stroke="#2ea043" fill="#2ea04344" hide={hide("genMwh")} />
+          <Line dataKey="shortfallMwh" name="shortfall (off-prod)" stroke="#f85149" dot={false} strokeWidth={1} hide={hide("shortfallMwh")} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>
@@ -360,6 +397,7 @@ export function PowerPanel({ data }: { data: SnapRow[] }) {
 }
 
 export function PricePaidPanel({ data }: { data: SnapRow[] }) {
+  const { hide, lp } = useLegendToggle();
   return (
     <div className="card">
       <h2>Cumulative cost: with contract vs market-only <span className="tag real">real</span></h2>
@@ -370,10 +408,10 @@ export function PricePaidPanel({ data }: { data: SnapRow[] }) {
           <YAxis yAxisId="l" {...AXIS} label={{ value: "£m paid", angle: -90, fill: "#8b949e", fontSize: 10 }} />
           <YAxis yAxisId="r" orientation="right" {...AXIS} label={{ value: "£m margin", angle: 90, fill: "#8b949e", fontSize: 10 }} />
           <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}m`, n]} />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Line yAxisId="l" dataKey="cumPaidWithoutM" name="paid without contract (spot)" stroke="#f85149" dot={false} strokeDasharray="4 3" />
-          <Line yAxisId="l" dataKey="cumPaidWithM" name="paid with contract" stroke="#58a6ff" dot={false} strokeWidth={2} />
-          <Line yAxisId="r" dataKey="cumMarginM" name="cum margin" stroke="#7ee787" dot={false} strokeWidth={1} />
+          <Legend {...lp} wrapperStyle={{ ...lp.wrapperStyle, fontSize: 11 }} />
+          <Line yAxisId="l" dataKey="cumPaidWithoutM" name="paid without contract (spot)" stroke="#f85149" dot={false} strokeDasharray="4 3" hide={hide("cumPaidWithoutM")} />
+          <Line yAxisId="l" dataKey="cumPaidWithM" name="paid with contract" stroke="#58a6ff" dot={false} strokeWidth={2} hide={hide("cumPaidWithM")} />
+          <Line yAxisId="r" dataKey="cumMarginM" name="cum margin" stroke="#7ee787" dot={false} strokeWidth={1} hide={hide("cumMarginM")} />
         </ComposedChart>
       </ResponsiveContainer>
       <p className="muted">Gap between the two cost lines = money the contract + instruments saved vs buying all load at spot.</p>
@@ -382,6 +420,7 @@ export function PricePaidPanel({ data }: { data: SnapRow[] }) {
 }
 
 export function CoveragePanel({ data }: { data: SnapRow[] }) {
+  const { hide, lp } = useLegendToggle();
   return (
     <div className="card">
       <h2>Coverage (own generation share) <span className="tag real">real</span></h2>
@@ -391,11 +430,11 @@ export function CoveragePanel({ data }: { data: SnapRow[] }) {
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} domain={[0, 100]} label={{ value: "%", angle: -90, fill: "#8b949e", fontSize: 10 }} />
           <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`${v}%`, n]} />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Line dataKey="barCoveragePct" name="coverage this bar" stroke="#2ea043" dot={false} strokeWidth={2} />
-          <Line dataKey="coveragePct" name="coverage cumulative" stroke="#7ee787" dot={false} strokeDasharray="4 3" />
-          <Line dataKey="genDeficitPct" name="generation-deficit %" stroke="#f85149" dot={false} />
-          <Line dataKey="imbalanceRatePct" name="imbalance rate % (market vol / load)" stroke="#d29922" dot={false} strokeDasharray="2 2" />
+          <Legend {...lp} wrapperStyle={{ ...lp.wrapperStyle, fontSize: 11 }} />
+          <Line dataKey="barCoveragePct" name="coverage this bar" stroke="#2ea043" dot={false} strokeWidth={2} hide={hide("barCoveragePct")} />
+          <Line dataKey="coveragePct" name="coverage cumulative" stroke="#7ee787" dot={false} strokeDasharray="4 3" hide={hide("coveragePct")} />
+          <Line dataKey="genDeficitPct" name="generation-deficit %" stroke="#f85149" dot={false} hide={hide("genDeficitPct")} />
+          <Line dataKey="imbalanceRatePct" name="imbalance rate % (market vol / load)" stroke="#d29922" dot={false} strokeDasharray="2 2" hide={hide("imbalanceRatePct")} />
         </LineChart>
       </ResponsiveContainer>
       <p className="muted">Coverage = energy share met by own generation (+ battery). Generation-deficit % = share of periods where own generation alone didn't cover load (battery-covered periods included). Imbalance rate = energy share of load bought from the market (= 100 − coverage).</p>
@@ -404,6 +443,7 @@ export function CoveragePanel({ data }: { data: SnapRow[] }) {
 }
 
 export function InstrumentPanel({ data }: { data: SnapRow[] }) {
+  const { hide, lp } = useLegendToggle();
   return (
     <div className="card">
       <h2>Instrument economics per bar <span className="tag model">model</span></h2>
@@ -413,19 +453,17 @@ export function InstrumentPanel({ data }: { data: SnapRow[] }) {
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "£k/bar", angle: -90, fill: "#8b949e", fontSize: 10 }} />
           <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}k`, n]} />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Bar dataKey="batteryRevK" name="BESS £k" fill="#2ea043" />
-          <Line dataKey="hedgePayoffK" name="collar+cap £k" stroke="#d2a8ff" dot={false} />
-          <Line dataKey="structPayK" name="buy-side structured £k" stroke="#1f6feb" dot={false} />
-          <Line dataKey="genHedgeK" name="gen-side (floor/CfD/wind) £k" stroke="#7ee787" dot={false} />
-          <Line dataKey="exportIncomeK" name="surplus export £k" stroke="#56d4dd" dot={false} />
+          <Legend {...lp} wrapperStyle={{ ...lp.wrapperStyle, fontSize: 11 }} />
+          <Bar dataKey="batteryRevK" name="BESS £k" fill="#2ea043" hide={hide("batteryRevK")} />
+          <Line dataKey="hedgePayoffK" name="collar+cap £k" stroke="#d2a8ff" dot={false} hide={hide("hedgePayoffK")} />
+          <Line dataKey="structPayK" name="buy-side structured £k" stroke="#1f6feb" dot={false} hide={hide("structPayK")} />
+          <Line dataKey="genHedgeK" name="gen-side (floor/CfD/wind) £k" stroke="#7ee787" dot={false} hide={hide("genHedgeK")} />
+          <Line dataKey="exportIncomeK" name="surplus export £k" stroke="#56d4dd" dot={false} hide={hide("exportIncomeK")} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
 }
-
-export type PriceDist = { bin: number; marketPct: number; paidPct: number };
 
 export function MarketDistPanel({ data }: { data: PriceDist[] }) {
   return (

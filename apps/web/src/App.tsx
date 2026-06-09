@@ -7,7 +7,7 @@ import type { Dataset, PortfolioConfig } from "@gbsim/core";
 import { loadDataset } from "./lib/data";
 import {
   toBook, dayProfile, yearlyPrice, captureStats, forwardFan, optionPricing,
-  riskWaterfall, batterySweep, structuralSummary, type BookControls,
+  riskWaterfall, batterySweep, structuralSummary, fullTimeSeries, type BookControls,
 } from "./lib/compute";
 import { ReplayView } from "./replay/ReplayView";
 import { NavBar } from "./home/NavBar";
@@ -53,6 +53,7 @@ export function App() {
   const yearly = useMemo(() => (ds ? yearlyPrice(ds) : []), [ds]);
   const capture = useMemo(() => (ds ? captureStats(ds) : null), [ds]);
   const fan = useMemo(() => (ds ? forwardFan(ds, 7, 200) : []), [ds]);
+  const timeSeries = useMemo(() => (ds ? fullTimeSeries(ds) : []), [ds]);
 
   function runAnalysis() {
     if (!ds) return;
@@ -108,7 +109,7 @@ export function App() {
             </p>
 
             <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-              <button onClick={() => setView("dashboard")} style={{ background: view === "dashboard" ? "#1f6feb" : "#21262d" }}>Dashboard</button>
+              <button onClick={() => setView("dashboard")} style={{ background: view === "dashboard" ? "#1f6feb" : "#21262d" }}>Data</button>
               <button onClick={() => setView("replay")} style={{ background: view === "replay" ? "#1f6feb" : "#21262d" }}>Replay</button>
             </div>
 
@@ -119,18 +120,7 @@ export function App() {
                 {/* Day profile */}
                 <div className="card">
                   <h2>Representative day: price vs renewables <span className="tag real">real</span></h2>
-                  <ResponsiveContainer width="100%" height={240}>
-                    <ComposedChart data={profile}>
-                      <CartesianGrid stroke={GRID} />
-                      <XAxis dataKey="hour" {...AXIS} />
-                      <YAxis yAxisId="l" {...AXIS} label={{ value: "£/MWh", angle: -90, fill: "#8b949e", fontSize: 11 }} />
-                      <YAxis yAxisId="r" orientation="right" {...AXIS} label={{ value: "GW", angle: 90, fill: "#8b949e", fontSize: 11 }} />
-                      <Tooltip contentStyle={{ background: "#161b22", border: "1px solid #30363d" }} />
-                      <Legend />
-                      <Area yAxisId="r" dataKey="renewGW" name="renewables" fill="#1f6f3f" stroke="#2ea043" />
-                      <Line yAxisId="l" dataKey="price" name="day-ahead £/MWh" stroke="#58a6ff" dot={false} strokeWidth={2} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
+                  <DayProfileChart data={profile} />
                   <p className="muted">Renewables peak midday when price dips (the cannibalisation mechanism).</p>
                 </div>
 
@@ -172,18 +162,27 @@ export function App() {
                 {/* Forward fan */}
                 <div className="card">
                   <h2>Forward scenarios, next 7 days <span className="tag model">model</span></h2>
-                  <ResponsiveContainer width="100%" height={240}>
-                    <AreaChart data={fan}>
-                      <CartesianGrid stroke={GRID} />
-                      <XAxis dataKey="period" {...AXIS} />
-                      <YAxis {...AXIS} />
-                      <Tooltip contentStyle={{ background: "#161b22", border: "1px solid #30363d" }} />
-                      <Area dataKey="p90" name="p90" stroke="#8957e5" fill="#8957e533" />
-                      <Area dataKey="p10" name="p10" stroke="#8957e5" fill="#0d1117" />
-                      <Line type="monotone" dataKey="mean" stroke="#d2a8ff" dot={false} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  <ForwardFanChart data={fan} />
                   <p className="muted">OU + jumps + slow factor, calibrated to real history.</p>
+                </div>
+
+                {/* Full historical time-series */}
+                <div className="card full">
+                  <h2>Day-ahead price — full history <span className="tag real">real</span></h2>
+                  <PriceHistoryChart data={timeSeries} />
+                  <p className="muted">Daily-averaged day-ahead (N2EX) price across the entire dataset.</p>
+                </div>
+
+                <div className="card">
+                  <h2>System load vs wind + solar <span className="tag real">real</span></h2>
+                  <LoadGenChart data={timeSeries} />
+                  <p className="muted">Daily averages. Wind + solar penetration drives price cannibalisation.</p>
+                </div>
+
+                <div className="card">
+                  <h2>Generation mix — stacked <span className="tag real">real</span></h2>
+                  <GenStackChart data={timeSeries} />
+                  <p className="muted">Wind, solar, nuclear and fossil gas share of national output, daily average GW.</p>
                 </div>
 
                 {/* Controls */}
@@ -218,17 +217,7 @@ export function App() {
 
                     <div className="card">
                       <h2>Risk waterfall: annual margin <span className="tag real">real</span> + <span className="tag model">model</span></h2>
-                      <ResponsiveContainer width="100%" height={240}>
-                        <BarChart data={analysis.waterfall}>
-                          <CartesianGrid stroke={GRID} />
-                          <XAxis dataKey="label" {...AXIS} interval={0} angle={-12} textAnchor="end" height={60} />
-                          <YAxis {...AXIS} label={{ value: "£m", angle: -90, fill: "#8b949e", fontSize: 11 }} />
-                          <Tooltip contentStyle={{ background: "#161b22", border: "1px solid #30363d" }} />
-                          <Legend />
-                          <Bar dataKey="std" name="margin std £m" fill="#f85149" />
-                          <Bar dataKey="downside" name="downside (p50-p5) £m" fill="#d29922" />
-                        </BarChart>
-                      </ResponsiveContainer>
+                      <WaterfallChart data={analysis.waterfall} />
                       <p className="muted">Lower bars = less risk. Collar + battery tighten the distribution.</p>
                     </div>
 
@@ -271,6 +260,140 @@ export function App() {
         )}
       </div>
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Legend toggle hook + chart sub-components
+// ---------------------------------------------------------------------------
+function useLegendToggle() {
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const toggle = (e: { dataKey?: unknown }) => {
+    const key = String(e?.dataKey ?? "");
+    if (!key) return;
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+  const hide = (key: string) => hidden.has(key);
+  const lp = {
+    wrapperStyle: { fontSize: 11, cursor: "pointer" },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onClick: toggle as any,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    formatter: (value: string, entry: any) => {
+      const off = hidden.has(String(entry?.dataKey ?? ""));
+      return <span style={{ opacity: off ? 0.3 : 1, textDecoration: off ? "line-through" : "none" }}>{value}</span>;
+    },
+  };
+  return { hide, lp };
+}
+
+function DayProfileChart({ data }: { data: ReturnType<typeof dayProfile> }) {
+  const { hide, lp } = useLegendToggle();
+  return (
+    <ResponsiveContainer width="100%" height={240}>
+      <ComposedChart data={data}>
+        <CartesianGrid stroke={GRID} />
+        <XAxis dataKey="hour" {...AXIS} />
+        <YAxis yAxisId="l" {...AXIS} label={{ value: "£/MWh", angle: -90, fill: "#8b949e", fontSize: 11 }} />
+        <YAxis yAxisId="r" orientation="right" {...AXIS} label={{ value: "GW", angle: 90, fill: "#8b949e", fontSize: 11 }} />
+        <Tooltip contentStyle={{ background: "#161b22", border: "1px solid #30363d" }} />
+        <Legend {...lp} />
+        <Area yAxisId="r" dataKey="renewGW" name="renewables" fill="#1f6f3f" stroke="#2ea043" hide={hide("renewGW")} />
+        <Line yAxisId="l" dataKey="price" name="day-ahead £/MWh" stroke="#58a6ff" dot={false} strokeWidth={2} hide={hide("price")} />
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
+function ForwardFanChart({ data }: { data: ReturnType<typeof forwardFan> }) {
+  const { hide, lp } = useLegendToggle();
+  return (
+    <ResponsiveContainer width="100%" height={240}>
+      <AreaChart data={data}>
+        <CartesianGrid stroke={GRID} />
+        <XAxis dataKey="period" {...AXIS} />
+        <YAxis {...AXIS} />
+        <Tooltip contentStyle={{ background: "#161b22", border: "1px solid #30363d" }} />
+        <Legend {...lp} />
+        <Area dataKey="p90" name="p90" stroke="#8957e5" fill="#8957e533" hide={hide("p90")} />
+        <Area dataKey="p10" name="p10" stroke="#8957e5" fill="#0d1117" hide={hide("p10")} />
+        <Line type="monotone" dataKey="mean" name="mean" stroke="#d2a8ff" dot={false} hide={hide("mean")} />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+function WaterfallChart({ data }: { data: { label: string; std: number; downside: number }[] }) {
+  const { hide, lp } = useLegendToggle();
+  return (
+    <ResponsiveContainer width="100%" height={240}>
+      <BarChart data={data}>
+        <CartesianGrid stroke={GRID} />
+        <XAxis dataKey="label" {...AXIS} interval={0} angle={-12} textAnchor="end" height={60} />
+        <YAxis {...AXIS} label={{ value: "£m", angle: -90, fill: "#8b949e", fontSize: 11 }} />
+        <Tooltip contentStyle={{ background: "#161b22", border: "1px solid #30363d" }} />
+        <Legend {...lp} />
+        <Bar dataKey="std" name="margin std £m" fill="#f85149" hide={hide("std")} />
+        <Bar dataKey="downside" name="downside (p50-p5) £m" fill="#d29922" hide={hide("downside")} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+type TsRow = { date: string; price: number; loadGW: number; windGW: number; solarGW: number; nuclearGW: number; fossilGasGW: number };
+
+function PriceHistoryChart({ data }: { data: TsRow[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <LineChart data={data}>
+        <CartesianGrid stroke={GRID} />
+        <XAxis dataKey="date" {...AXIS} minTickGap={60} />
+        <YAxis {...AXIS} label={{ value: "£/MWh", angle: -90, fill: "#8b949e", fontSize: 11 }} />
+        <Tooltip contentStyle={{ background: "#161b22", border: "1px solid #30363d" }} formatter={(v: number) => [`£${v}/MWh`, "day-ahead"]} />
+        <Line dataKey="price" name="day-ahead price" stroke="#58a6ff" dot={false} strokeWidth={2} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function LoadGenChart({ data }: { data: TsRow[] }) {
+  const { hide, lp } = useLegendToggle();
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <ComposedChart data={data}>
+        <CartesianGrid stroke={GRID} />
+        <XAxis dataKey="date" {...AXIS} minTickGap={60} />
+        <YAxis {...AXIS} label={{ value: "GW", angle: -90, fill: "#8b949e", fontSize: 11 }} />
+        <Tooltip contentStyle={{ background: "#161b22", border: "1px solid #30363d" }} formatter={(v: number, n: string) => [`${v} GW`, n]} />
+        <Legend {...lp} />
+        <Area dataKey="loadGW" name="system load" stroke="#58a6ff" fill="#58a6ff22" strokeWidth={2} hide={hide("loadGW")} />
+        <Line dataKey="windGW" name="wind" stroke="#3fb950" dot={false} hide={hide("windGW")} />
+        <Line dataKey="solarGW" name="solar" stroke="#f2cc60" dot={false} hide={hide("solarGW")} />
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
+function GenStackChart({ data }: { data: TsRow[] }) {
+  const { hide, lp } = useLegendToggle();
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <AreaChart data={data}>
+        <CartesianGrid stroke={GRID} />
+        <XAxis dataKey="date" {...AXIS} minTickGap={60} />
+        <YAxis {...AXIS} label={{ value: "GW", angle: -90, fill: "#8b949e", fontSize: 11 }} />
+        <Tooltip contentStyle={{ background: "#161b22", border: "1px solid #30363d" }} formatter={(v: number, n: string) => [`${v} GW`, n]} />
+        <Legend {...lp} />
+        <Area dataKey="windGW" name="wind" stackId="g" stroke="#3fb950" fill="#3fb95066" hide={hide("windGW")} />
+        <Area dataKey="solarGW" name="solar" stackId="g" stroke="#f2cc60" fill="#f2cc6066" hide={hide("solarGW")} />
+        <Area dataKey="nuclearGW" name="nuclear" stackId="g" stroke="#a371f7" fill="#a371f766" hide={hide("nuclearGW")} />
+        <Area dataKey="fossilGasGW" name="fossil gas" stackId="g" stroke="#f85149" fill="#f8514966" hide={hide("fossilGasGW")} />
+      </AreaChart>
+    </ResponsiveContainer>
   );
 }
 

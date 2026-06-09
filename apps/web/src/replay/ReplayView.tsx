@@ -3,6 +3,31 @@ import {
   Dataset, buildBars, ReplaySession, PRODUCTION_FUELS,
   type Bar, type Resolution, type ReplayConfig, type Instrument, type StepSnapshot,
 } from "@gbsim/core";
+
+type ChartMode = "price" | "load" | "generation";
+
+/** Build OHLC bars from arbitrary dataset columns using the same time buckets as mapBars. */
+function buildColBars(mapBars: Bar[], ds: Dataset, colNames: string[]): Bar[] {
+  const cols = colNames.map((c) => ds.col(c));
+  return mapBars.map((b) => {
+    const ph = 0.5; // hours per half-hourly period
+    let open = NaN, close = NaN, high = -Infinity, low = Infinity, cn = 0;
+    for (let i = b.rawStart; i < b.rawEnd; i++) {
+      let sum = 0;
+      for (const col of cols) { const v = col[i]; if (v != null && v === v) sum += v; }
+      const gw = sum / ph / 1000;
+      if (!cn) open = gw;
+      close = gw;
+      if (gw > high) high = gw;
+      if (gw < low) low = gw;
+      cn++;
+    }
+    return { ...b, open, high: cn ? high : NaN, low: cn ? low : NaN, close };
+  });
+}
+
+const LOAD_COLS = ["load"];
+const GEN_COLS = ["windOffshore", "windOnshore", "solar", "biomass", "hydroROR", "nuclear", "pumpedStorage", "other", "fossilGas", "coal", "oil"];
 import { PriceChart, type PriceChartHandle } from "./PriceChart";
 import {
   PowerPanel, PricePaidPanel, CoveragePanel, InstrumentPanel, SourcingPanel,
@@ -17,7 +42,14 @@ const TICK_MS = 80;
 
 export function ReplayView({ ds }: { ds: Dataset }) {
   const [resolution, setResolution] = useState<Resolution>("day");
+  const [chartMode, setChartMode] = useState<ChartMode>("price");
   const mapBars = useMemo<Bar[]>(() => buildBars(ds, 0, ds.rows, resolution), [ds, resolution]);
+  const loadBars = useMemo<Bar[]>(() => buildColBars(mapBars, ds, LOAD_COLS), [ds, mapBars]);
+  const genBars  = useMemo<Bar[]>(() => buildColBars(mapBars, ds, GEN_COLS),  [ds, mapBars]);
+  const activeBars = useMemo<Bar[]>(
+    () => chartMode === "load" ? loadBars : chartMode === "generation" ? genBars : mapBars,
+    [chartMode, mapBars, loadBars, genBars],
+  );
 
   const [mode, setMode] = useState<Mode>("idle");
   const [startBarIdx, setStartBarIdx] = useState<number | null>(null);
@@ -104,10 +136,19 @@ export function ReplayView({ ds }: { ds: Dataset }) {
     stopTimer();
     setMode("idle"); setStartBarIdx(null); setRows([]); setHist([]); setKpi(null);
     sessionRef.current = null;
-    chartRef.current?.setData(mapBars);
+    chartRef.current?.setData(activeBars);
     chartRef.current?.setStartMarker(null);
     chartRef.current?.fit();
-  }, [mapBars]);
+  }, [mapBars]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // reload chart when chartMode changes (only in browse/configure phases, not during replay)
+  useEffect(() => {
+    if (mode === "idle" || mode === "selecting" || mode === "configured") {
+      chartRef.current?.setData(activeBars);
+      if (startBarIdx != null) chartRef.current?.setStartMarker(mapBars[startBarIdx]!.time);
+      chartRef.current?.fit();
+    }
+  }, [chartMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function fmtDate(timeSec: number): string {
     const d = new Date(timeSec * 1000);
@@ -168,7 +209,7 @@ export function ReplayView({ ds }: { ds: Dataset }) {
     strideRef.current = resolution === "hh" ? 12 : resolution === "hour" ? 3 : 1;
 
     // truncate chart to the start bar, then reveal forward
-    chartRef.current?.setData(mapBars.slice(0, startBarIdx + 1));
+    chartRef.current?.setData(activeBars.slice(0, startBarIdx + 1));
     chartRef.current?.setStartMarker(startBar.time);
     chartRef.current?.fit();
     setRows([]); setHist([]); setKpi(null);
@@ -185,7 +226,17 @@ export function ReplayView({ ds }: { ds: Dataset }) {
       const snap = s.step();
       if (!snap) break;
       last = snap;
-      chartRef.current?.update(snap.bar);
+      if (chartMode === "load") {
+        const bh = Math.max(0.5, (snap.bar.rawEnd - snap.bar.rawStart) * 0.5);
+        const gw = snap.systemLoadMwh / bh / 1000;
+        chartRef.current?.update({ ...snap.bar, open: gw, high: gw, low: gw, close: gw });
+      } else if (chartMode === "generation") {
+        const bh = Math.max(0.5, (snap.bar.rawEnd - snap.bar.rawStart) * 0.5);
+        const gw = snap.genMwh / bh / 1000;
+        chartRef.current?.update({ ...snap.bar, open: gw, high: gw, low: gw, close: gw });
+      } else {
+        chartRef.current?.update(snap.bar);
+      }
       if (snap.barIndex % strideRef.current === 0 || s.done) {
         batch.push(toRow(snap));
       }
@@ -268,8 +319,12 @@ export function ReplayView({ ds }: { ds: Dataset }) {
       <div className="card full">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
           <h2 style={{ margin: 0 }}>Replay, pick a start, set the contract, step through real data</h2>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span className="muted">resolution</span>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <span className="muted">chart</span>
+            {(["price", "load", "generation"] as ChartMode[]).map((m) => (
+              <button key={m} onClick={() => setChartMode(m)} style={{ background: chartMode === m ? "#8957e5" : "#21262d", padding: "4px 10px" }}>{m}</button>
+            ))}
+            <span className="muted" style={{ marginLeft: 8 }}>resolution</span>
             {(["day", "hour", "hh"] as Resolution[]).map((r) => (
               <button key={r} onClick={() => setResolution(r)} style={{ background: resolution === r ? "#1f6feb" : "#21262d", padding: "4px 10px" }}>{r}</button>
             ))}

@@ -10,7 +10,7 @@ interface NavBarProps {
 
 const APP_LINKS: { label: string; view: View }[] = [
   { label: 'Home', view: 'home' },
-  { label: 'Simulator', view: 'dashboard' },
+  { label: 'Data', view: 'dashboard' },
   { label: 'Replay', view: 'replay' },
 ];
 
