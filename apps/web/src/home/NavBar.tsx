@@ -1,0 +1,132 @@
+import { useEffect, useRef, useState } from 'react';
+import { Menu, X } from 'lucide-react';
+import type { View } from './home-deck.data';
+
+interface NavBarProps {
+  view: View;
+  onNav: (v: View) => void;
+  scrolled: boolean;
+}
+
+const APP_LINKS: { label: string; view: View }[] = [
+  { label: 'Home', view: 'home' },
+  { label: 'Simulator', view: 'dashboard' },
+  { label: 'Replay', view: 'replay' },
+];
+
+const PLACEHOLDER_LINKS = ['About', 'Approach', 'Insights', 'Contact'];
+
+export function NavBar({ view, onNav, scrolled }: NavBarProps) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const el = menuRef.current;
+    if (!el) return;
+    const focusable = el.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    focusable[0]?.focus();
+
+    function trap(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setOpen(false);
+        hamburgerRef.current?.focus();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const els = Array.from(focusable);
+      const first = els[0];
+      const last = els[els.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener('keydown', trap);
+    return () => document.removeEventListener('keydown', trap);
+  }, [open]);
+
+  function handleNav(v: View) {
+    onNav(v);
+    setOpen(false);
+  }
+
+  return (
+    <>
+      <a href="#main-content" className="skip-link">Skip to content</a>
+
+      <nav className={`navbar${scrolled ? ' scrolled' : ''}`} aria-label="Site navigation">
+        <button className="navbar-brand" onClick={() => handleNav('home')} aria-label="UrbanChain home">
+          UrbanChain
+        </button>
+
+        <div className="navbar-spacer" />
+
+        <ul className="navbar-links" role="list">
+          {APP_LINKS.map(({ label, view: v }) => (
+            <li key={v}>
+              <button
+                className={view === v ? 'nav-active' : undefined}
+                aria-current={view === v ? 'page' : undefined}
+                onClick={() => handleNav(v)}
+              >
+                {label}
+              </button>
+            </li>
+          ))}
+          <li aria-hidden="true"><div className="navbar-divider" /></li>
+          {PLACEHOLDER_LINKS.map((label) => (
+            <li key={label}>
+              <a href="#" onClick={(e) => e.preventDefault()} aria-label={`${label} (coming soon)`}>
+                {label}
+              </a>
+            </li>
+          ))}
+        </ul>
+
+        <button
+          ref={hamburgerRef}
+          className="navbar-hamburger"
+          aria-label={open ? 'Close menu' : 'Open menu'}
+          aria-expanded={open}
+          aria-controls="mobile-menu"
+          onClick={() => setOpen((o) => !o)}
+        >
+          {open ? <X size={18} color="var(--ice)" /> : <Menu size={18} color="var(--ice)" />}
+        </button>
+      </nav>
+
+      <div
+        id="mobile-menu"
+        ref={menuRef}
+        className={`navbar-mobile-menu${open ? ' open' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation menu"
+      >
+        {APP_LINKS.map(({ label, view: v }) => (
+          <button
+            key={v}
+            className={view === v ? 'nav-active' : undefined}
+            aria-current={view === v ? 'page' : undefined}
+            onClick={() => handleNav(v)}
+          >
+            {label}
+          </button>
+        ))}
+        <div className="navbar-mobile-divider" />
+        {PLACEHOLDER_LINKS.map((label) => (
+          <a key={label} href="#" onClick={(e) => e.preventDefault()} aria-label={`${label} (coming soon)`}>
+            {label}
+          </a>
+        ))}
+      </div>
+    </>
+  );
+}
