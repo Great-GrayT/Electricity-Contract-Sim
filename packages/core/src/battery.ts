@@ -9,7 +9,7 @@ import { DT_HOURS } from "./replay.js";
  * intraday is well-approximated by independent daily optimisation). Charges the cheap
  * troughs, discharges the peaks, subject to power, energy, SoC and round-trip efficiency.
  * Other revenue streams (Balancing Mechanism, frequency response, Capacity Market) are
- * deferred until that data is provided — this is arbitrage-only by design.
+ * deferred until that data is provided, this is arbitrage-only by design.
  */
 export interface BatterySpec {
   powerMW: number;          // max charge/discharge power

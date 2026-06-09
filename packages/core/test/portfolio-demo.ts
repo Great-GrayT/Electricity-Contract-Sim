@@ -23,7 +23,7 @@ const cfg: PortfolioConfig = {
 const { layers } = buildLayers(ds, cfg);
 const wf = varWaterfall(layers, cfg, 5000, 1);
 
-console.log("=== Integrated book — risk waterfall (stationary block-bootstrap annual margin) ===");
+console.log("=== Integrated book, risk waterfall (stationary block-bootstrap annual margin) ===");
 console.log("layer".padEnd(26), "mean".padStart(9), "p5".padStart(9), "p50".padStart(9), "p90".padStart(9), "std".padStart(9), "downside".padStart(9));
 for (const s of wf) {
   const x = s.metrics;
@@ -39,7 +39,7 @@ console.log(`margin std reduced ${m(first.std)} -> ${m(last.std)}  (${(100 * (1 
 console.log(`worst-5% annual margin (p5) lifted ${m(first.p5)} -> ${m(last.p5)}`);
 
 // Proxy revenue swap reported at its real purpose: stabilising GENERATION revenue (bankability).
-console.log("\n=== Proxy revenue swap — generation-revenue stabilisation (its actual job) ===");
+console.log("\n=== Proxy revenue swap, generation-revenue stabilisation (its actual job) ===");
 const { paths } = replay(ds, cfg.book);
 const prs = proxyRevenueSwap(ds, paths.genMwh);
 console.log(`generation revenue: floating annual std ${m(prs.floatingStd)} -> fixed ${m(prs.fairFixedAnnual)}/yr (variance removed for financing)`);

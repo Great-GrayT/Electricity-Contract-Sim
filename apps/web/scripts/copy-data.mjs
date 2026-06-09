@@ -9,7 +9,7 @@ const outDir = join(here, "..", "public", "data");
 mkdirSync(outDir, { recursive: true });
 for (const f of ["gb.f64", "gb.meta.json"]) {
   const src = join(dataDir, f);
-  if (!existsSync(src)) { console.error(`missing ${src} — run 'npm run extract' first`); process.exit(1); }
+  if (!existsSync(src)) { console.error(`missing ${src}, run 'npm run extract' first`); process.exit(1); }
   copyFileSync(src, join(outDir, f));
 }
 console.log("copied dataset to public/data");

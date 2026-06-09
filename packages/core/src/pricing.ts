@@ -3,7 +3,7 @@
  * from the calibrated scenario model, since there is no traded GB forward in the data).
  *
  * Two engines:
- *  - Bachelier (normal): default for power — handles negative/zero forwards and strikes,
+ *  - Bachelier (normal): default for power, handles negative/zero forwards and strikes,
  *    vol expressed as an absolute £/MWh standard deviation.
  *  - Black-76 (lognormal): classic, valid only for strictly positive F and K.
  */

@@ -4,7 +4,7 @@ import { mulberry32, gaussianFrom, poissonFrom } from "./rng.js";
 
 /**
  * Price scenario model for GB day-ahead, calibrated to real history only.
- * MODEL-DERIVED output — never a substitute for a real price, used solely for
+ * MODEL-DERIVED output, never a substitute for a real price, used solely for
  * forward-looking scenarios where no real future exists.
  *
  * Structure (a tractable Lucia-Schwartz-style two-factor + jumps):

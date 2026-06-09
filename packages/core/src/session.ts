@@ -50,7 +50,7 @@ export interface ReplayConfig {
   tariffGbpMwh: number;     // retail tariff: price the CONSUMER pays us, £/MWh
   ownership: Partial<Record<string, number>>; // sizes the asset portfolio: fraction of national renewable output
   ppaPriceGbpMwh: number;   // PPA price: price we pay the GENERATOR per MWh contracted, £/MWh
-  /** PPA VOLUME STRUCTURE — decides the volume we actually receive and who carries the volume/shape gap.
+  /** PPA VOLUME STRUCTURE, decides the volume we actually receive and who carries the volume/shape gap.
    *  payAsProduced: take actual output (buyer risk). baseload: flat firm block (seller firms).
    *  shaped: actual clamped into ±band around firm (shared). nominated: firm, buyer balances the
    *  asset deviation at cash-out. vfa: firm via a Volume Firming Agreement (gap at index, less a fee). */
@@ -61,7 +61,7 @@ export interface ReplayConfig {
   /** Whether PPA surplus is sold to the market for income (default true). If false, surplus is curtailed (we still pay the PPA). */
   exportSurplus?: boolean;
   /** If true, the residual (generation-deficit shortfall / surplus) settles at the REAL single
-   * imbalance/cash-out price (systemBuyPrice / systemSellPrice) instead of day-ahead — the
+   * imbalance/cash-out price (systemBuyPrice / systemSellPrice) instead of day-ahead, the
    * punitive last-mile price. Hedges still reference day-ahead, so cash-out vs DA basis emerges. */
   imbalanceSettlement?: boolean;
   instruments: Instrument[];
@@ -90,7 +90,7 @@ export interface StepSnapshot {
   consumerPaidPrice: number;    // retail tariff charged to the consumer, £/MWh
   buyPriceHedgedBar: number;    // PRICE PAID to procure this bar, £/MWh = (PPA·gen + shortfall·cappedSpot +
                                 // charge·cappedSpot) ÷ MWh procured. Buy-side options act as PRICE CAPS/FLOORS,
-                                // never as income. Always ≥ 0 — it is a cost, not a P&L.
+                                // never as income. Always ≥ 0, it is a cost, not a P&L.
   cumBuyPricePaid: number;      // cumulative volume-weighted price paid to procure, £/MWh
   marketOnlyPriceBar: number;   // counterfactual: whole load bought at spot, £/MWh (load-weighted)
   // cost-to-serve breakdown this bar (£): serveCost = mktShortfallCost + chargeCost + ppaServeCost − collar − cap − proxy
@@ -117,8 +117,8 @@ export interface StepSnapshot {
   capPayoff: number;
   batteryRevenue: number;
   proxyPayoff: number;
-  structHedgePayoff: number;  // buy-side structured overlays this bar (swap + swing + quanto + dsr), £ — reduces cost-to-serve
-  genHedgePayoff: number;     // generation-side overlays this bar (floor + cfd + windIndex), £ — revenue stabiliser
+  structHedgePayoff: number;  // buy-side structured overlays this bar (swap + swing + quanto + dsr), £, reduces cost-to-serve
+  genHedgePayoff: number;     // generation-side overlays this bar (floor + cfd + windIndex), £, revenue stabiliser
   structVolCashBar: number;   // PPA volume-structure settlement this bar (nominated/VFA counterparty cash), £ (+ income)
   stepMargin: number;
   // cumulative
@@ -186,7 +186,7 @@ export class ReplaySession {
     this.batEnergyMWh = batInstr ? batInstr.spec.powerMW * batInstr.spec.durationH : 0;
     this.batEff = batInstr ? Math.sqrt(batInstr.spec.roundTripEff) : 1;
 
-    // causal trailing-mean price (last day) — the real-time reference for charge/discharge
+    // causal trailing-mean price (last day), the real-time reference for charge/discharge
     this.trailMean = causalTrailingMean(ds.col("daPrice"), 48);
 
     // proxy swap fixed leg = expected generation value over the window; gen-index baseline = expected output.
@@ -252,7 +252,7 @@ export class ReplaySession {
     const airTemp = this.ds.has("wtdTemp") ? this.ds.col("wtdTemp") : null;
     const useImb = !!c.imbalanceSettlement && !!imbBuy && !!imbSell;
 
-    // weather series (all that exist in the dataset) — averaged over the bar for the breakdown
+    // weather series (all that exist in the dataset), averaged over the bar for the breakdown
     const wx = {
       temp: this.ds.has("temp") ? this.ds.col("temp") : null,
       ws10: this.ds.has("windSpeed10m") ? this.ds.col("windSpeed10m") : null,
@@ -302,9 +302,9 @@ export class ReplaySession {
       validPeriods++;
       const dem = (c.loadSharePct / 100) * ld * dt;
       const g = this.genAt(i);
-      const A = isNum(g) ? g : 0;       // actual asset output (real, weather-driven) — the pay-as-produced baseline
+      const A = isNum(g) ? g : 0;       // actual asset output (real, weather-driven), the pay-as-produced baseline
 
-      // residual settlement price (cash-out if enabled, else day-ahead) — also used by some volume structures
+      // residual settlement price (cash-out if enabled, else day-ahead), also used by some volume structures
       const ib = useImb && isNum(imbBuy![i]!) ? imbBuy![i]! : p;
       const is = useImb && isNum(imbSell![i]!) ? imbSell![i]! : p;
       if (useImb && isNum(imbBuy![i]!)) { imbSum += imbBuy![i]!; imbN++; }
@@ -343,7 +343,7 @@ export class ReplaySession {
           chargeSurplus = Math.min(surplusGen, pmax, room / this.batEff);
           this.batSoc += chargeSurplus * this.batEff; surplusGen -= chargeSurplus;
         }
-        // charge from the market when cheap (below reference) — buy now to displace costlier buys later,
+        // charge from the market when cheap (below reference), buy now to displace costlier buys later,
         // even while short; only if power headroom remains and we did not just discharge
         if (p <= lo && fromBat === 0) {
           const room = this.batEnergyMWh - this.batSoc;
@@ -398,7 +398,7 @@ export class ReplaySession {
       const sgPay = swingI ? Math.min(fromMkt, swingI.maxMW * dt) * Math.max(p - swingI.strike, 0) : 0;    // physical swing caps the short at strike
       const qPay  = quantoI ? quantoI.coverage * fromMkt * Math.max(p - quantoI.strike, 0) : 0;            // short MWh × price excess (the covariance)
       const dPay  = dsrI ? Math.min(fromMkt, dsrI.mw * dt) * Math.max(p - dsrI.threshold, 0) : 0;          // shed peak demand priced above threshold
-      // degree-day (weather) hedge on demand volume — settles on the REAL weighted temperature.
+      // degree-day (weather) hedge on demand volume, settles on the REAL weighted temperature.
       // HDD pays in cold spells, CDD in hot; per-period degree-days = DD(day) × dt/24.
       let tdPay = 0;
       if (tempI && airTemp && isNum(airTemp[i]!)) {
@@ -426,7 +426,7 @@ export class ReplaySession {
       barMktOnly += dem * p;               // counterfactual: buy the whole load at spot (day-ahead)
 
       // PRICE PAID to procure this period: PPA on own generation + shortfall & charge at the spot
-      // CAPPED into [buyFloor, buyCeil] by the buy-side options. Pure cost — every term ≥ 0.
+      // CAPPED into [buyFloor, buyCeil] by the buy-side options. Pure cost, every term ≥ 0.
       const pShortEff = clamp(ib, buyFloor, buyCeil);
       const pChargeEff = clamp(p, buyFloor, buyCeil);
       const periodBuyCost = ppaVol * ppaPos + fromMkt * pShortEff + chargeBuy * pChargeEff;
@@ -516,8 +516,8 @@ export class ReplaySession {
    * line up on the same x-axis:
    *  - marketPct: share of market half-hours in each price bin (what the market did)
    *  - paidPct: share of procured MWh at each PRICE PAID (PPA + spot capped/floored by the
-   *    buy-side options). This is the price the contract actually paid for energy — always ≥ 0,
-   *    never a payout — so it shows how the instruments squeeze the price distribution inward.
+   *    buy-side options). This is the price the contract actually paid for energy, always ≥ 0,
+   *    never a payout, so it shows how the instruments squeeze the price distribution inward.
    * Bins span the combined range of both series over the revealed dates, so the x-axis tracks
    * the actual range as the replay advances.
    */
@@ -551,7 +551,7 @@ export class ReplaySession {
 
 const clamp = (x: number, lo: number, hi: number) => Math.min(Math.max(x, lo), hi);
 
-/** Causal trailing mean over the last `win` finite values (no lookahead) — real-time price reference. */
+/** Causal trailing mean over the last `win` finite values (no lookahead), real-time price reference. */
 function causalTrailingMean(price: Float64Array, win: number): Float64Array {
   const n = price.length;
   const out = new Float64Array(n);

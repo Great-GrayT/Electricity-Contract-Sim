@@ -69,8 +69,8 @@ export interface SnapRow {
   systemLoadGW: number;
   barCoveragePct: number;    // instantaneous (this bar)
   coveragePct: number;       // cumulative
-  genDeficitPct: number;     // cumulative — periods own gen < load
-  imbalanceRatePct: number;  // cumulative — market-bought MWh / consumer load MWh
+  genDeficitPct: number;     // cumulative, periods own gen < load
+  imbalanceRatePct: number;  // cumulative, market-bought MWh / consumer load MWh
   batteryRevK: number;       // £k per bar
   hedgePayoffK: number;      // collar+cap per bar, £k
   exportIncomeK: number;     // surplus export income per bar, £k
@@ -105,7 +105,7 @@ export function SystemLoadPanel({ data }: { data: SnapRow[] }) {
 function WeatherBreakdown({ data }: { data: SnapRow[] }) {
   return (
     <div style={{ marginTop: 12, borderTop: "1px solid #21262d", paddingTop: 10 }}>
-      <div className="muted" style={{ marginBottom: 4 }}>Real weather — temperature (°C, left) and wind speed (m/s, right), bar-averaged</div>
+      <div className="muted" style={{ marginBottom: 4 }}>Real weather, temperature (°C, left) and wind speed (m/s, right), bar-averaged</div>
       <ResponsiveContainer width="100%" height={210}>
         <ComposedChart data={data} syncId={SYNC}>
           <CartesianGrid stroke={GRID} />
@@ -128,7 +128,7 @@ function WeatherBreakdown({ data }: { data: SnapRow[] }) {
 export function ProductionStackPanel({ data }: { data: SnapRow[] }) {
   return (
     <div className="card">
-      <h2>Total production by type — renewables → fossils <span className="tag real">real</span></h2>
+      <h2>Total production by type, renewables → fossils <span className="tag real">real</span></h2>
       <ResponsiveContainer width="100%" height={200}>
         <AreaChart data={data} syncId={SYNC}>
           <CartesianGrid stroke={GRID} />
@@ -177,7 +177,7 @@ export function PriceComparePanel({ data }: { data: SnapRow[] }) {
 function CostBreakdown({ data }: { data: SnapRow[] }) {
   return (
     <div style={{ marginTop: 12, borderTop: "1px solid #21262d", paddingTop: 10 }}>
-      <div className="muted" style={{ marginBottom: 4 }}>Cost-to-serve breakdown per bar (£k) — costs above zero, hedge payouts below (they reduce cost); net = line</div>
+      <div className="muted" style={{ marginBottom: 4 }}>Cost-to-serve breakdown per bar (£k), costs above zero, hedge payouts below (they reduce cost); net = line</div>
       <ResponsiveContainer width="100%" height={210}>
         <ComposedChart data={data} syncId={SYNC} stackOffset="sign">
           <CartesianGrid stroke={GRID} />
@@ -218,7 +218,7 @@ export function SourcingPanel({ data }: { data: SnapRow[] }) {
           <Line yAxisId="r" dataKey="batterySocMWh" name="battery SoC" stroke="#58a6ff" dot={false} strokeWidth={1} />
         </ComposedChart>
       </ResponsiveContainer>
-      <p className="muted">Each bar: load met cheapest-first — own generation, then battery (charged cheap / discharged dear), then market.</p>
+      <p className="muted">Each bar: load met cheapest-first, own generation, then battery (charged cheap / discharged dear), then market.</p>
     </div>
   );
 }
@@ -457,7 +457,7 @@ export function PaidDistPanel({ data }: { data: PriceDist[] }) {
           <Bar dataKey="paidPct" name="price paid" fill="#7ee787" />
         </BarChart>
       </ResponsiveContainer>
-      <p className="muted">Price paid per MWh to procure (PPA + spot capped/floored by the buy-side options), procured-MWh-weighted, on the same axis as the market. Buy-side options squeeze the high-price tail in — and it never goes below zero.</p>
+      <p className="muted">Price paid per MWh to procure (PPA + spot capped/floored by the buy-side options), procured-MWh-weighted, on the same axis as the market. Buy-side options squeeze the high-price tail in, and it never goes below zero.</p>
     </div>
   );
 }

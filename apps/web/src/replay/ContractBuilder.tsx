@@ -10,11 +10,11 @@ const sizeStr = (mw: number): string =>
     : "";
 
 const STRUCT_DESC: Record<string, string> = {
-  payAsProduced: "Pay-as-produced: you take whatever the assets generate. You carry all volume & shape risk — shortfall topped up from the market, surplus sold/curtailed.",
+  payAsProduced: "Pay-as-produced: you take whatever the assets generate. You carry all volume & shape risk, shortfall topped up from the market, surplus sold/curtailed.",
   baseload: "Baseload: the seller delivers a flat firm block whatever the weather, firming the gap via storage/market. Volume & shape risk sit with the seller (priced into the PPA).",
-  shaped: "Shaped: you take the actual output but only within ±band of the firm level — the seller absorbs anything beyond the band. Volume risk is shared inside the band.",
-  nominated: "Pay-as-nominated: you receive the firm nomination, but you balance the asset's deviation from it at the cash-out/day-ahead price — you carry the forecast/balancing risk.",
-  vfa: "Volume Firming Agreement: you keep the pay-as-produced asset, but a counterparty firms it to the firm level — the (actual − firm) gap settles at the day-ahead index, less a per-MWh firming fee.",
+  shaped: "Shaped: you take the actual output but only within ±band of the firm level, the seller absorbs anything beyond the band. Volume risk is shared inside the band.",
+  nominated: "Pay-as-nominated: you receive the firm nomination, but you balance the asset's deviation from it at the cash-out/day-ahead price, you carry the forecast/balancing risk.",
+  vfa: "Volume Firming Agreement: you keep the pay-as-produced asset, but a counterparty firms it to the firm level, the (actual − firm) gap settles at the day-ahead index, less a per-MWh firming fee.",
 };
 
 const AXIS = { stroke: "#8b949e", fontSize: 10 };
@@ -57,8 +57,8 @@ export function ContractBuilder(p: BuilderProps) {
   const dis = p.locked;
 
   const tabs: { id: Tab; label: string; on?: boolean }[] = [
-    { id: "generators", label: "⚡ Generators (PPA)" },
-    { id: "consumers", label: "🏠 Consumers (Retail)" },
+    { id: "generators", label: "Generators (PPA)" },
+    { id: "consumers", label: "Consumers (Retail)" },
     // buy / cost side (downside: high-price & short-volume protection)
     { id: "collar", label: "▼ Collar", on: p.collar.on },
     { id: "cap", label: "▼ Cap", on: p.cap.on },
@@ -79,7 +79,7 @@ export function ContractBuilder(p: BuilderProps) {
 
   return (
     <div className="card full">
-      <h2>Contracts — generators, consumers & instruments {dis ? <span className="muted">(locked while running)</span> : null}</h2>
+      <h2>Contracts, generators, consumers & instruments {dis ? <span className="muted">(locked while running)</span> : null}</h2>
       <div className="tabs">
         {tabs.map((t) => (
           <button key={t.id} className={`tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
@@ -100,11 +100,11 @@ export function ContractBuilder(p: BuilderProps) {
               <div className="ctrl">
                 <label>Volume structure</label>
                 <select title="PPA volume structure" disabled={dis} value={p.generators.structure} onChange={(e) => p.generators.setStructure(e.target.value as BuilderProps["generators"]["structure"])} style={{ width: "100%", background: "#21262d", color: "#e6edf3", border: "1px solid #30363d", padding: "6px" }}>
-                  <option value="payAsProduced">Pay-as-produced — take actual output (buyer risk)</option>
-                  <option value="baseload">Baseload — flat firm block (seller firms)</option>
-                  <option value="shaped">Shaped — actual within ±band of firm (shared)</option>
-                  <option value="nominated">Pay-as-nominated — firm, you balance deviation (buyer forecast risk)</option>
-                  <option value="vfa">VFA — firmed, gap at index less a fee</option>
+                  <option value="payAsProduced">Pay-as-produced, take actual output (buyer risk)</option>
+                  <option value="baseload">Baseload, flat firm block (seller firms)</option>
+                  <option value="shaped">Shaped, actual within ±band of firm (shared)</option>
+                  <option value="nominated">Pay-as-nominated, firm, you balance deviation (buyer forecast risk)</option>
+                  <option value="vfa">VFA, firmed, gap at index less a fee</option>
                 </select>
               </div>
               {p.generators.structure !== "payAsProduced" && (
@@ -118,7 +118,7 @@ export function ContractBuilder(p: BuilderProps) {
               )}
               <div className="ctrl">
                 <label>Sell surplus to market</label>
-                <button disabled={dis} onClick={() => p.generators.setExportSurplus(!p.generators.exportSurplus)} style={{ background: p.generators.exportSurplus ? "#238636" : "#21262d", width: "100%" }}>{p.generators.exportSurplus ? "ON — export for income" : "OFF — curtail surplus"}</button>
+                <button disabled={dis} onClick={() => p.generators.setExportSurplus(!p.generators.exportSurplus)} style={{ background: p.generators.exportSurplus ? "#238636" : "#21262d", width: "100%" }}>{p.generators.exportSurplus ? "ON, export for income" : "OFF, curtail surplus"}</button>
               </div>
             </div>
             <PayoffChart kind="ppa" ppa={p.generators.ppaPrice} />
@@ -174,7 +174,7 @@ export function ContractBuilder(p: BuilderProps) {
 
       {tab === "swing" && (
         <InstrumentTab on={p.swing.on} setOn={p.swing.setOn} dis={dis} name="Swing option (volume optionality)"
-          desc="A physical right to take up to a set volume at a fixed strike. When the market is above the strike we exercise to cover the shortfall, so the bought volume is capped at the strike up to the swing limit — a dimmer switch that follows your residual shape.">
+          desc="A physical right to take up to a set volume at a fixed strike. When the market is above the strike we exercise to cover the shortfall, so the bought volume is capped at the strike up to the swing limit, a dimmer switch that follows your residual shape.">
           <div className="controls">
             <Slider label="Strike" v={p.swing.strike} min={20} max={250} step={5} fmt={(x) => `£${x}/MWh`} on={p.swing.setStrike} dis={dis || !p.swing.on} />
             <Slider label="Max take" v={p.swing.maxMW} min={0} max={600} step={10} fmt={(x) => `${x} MW`} on={p.swing.setMaxMW} dis={dis || !p.swing.on} />
@@ -185,7 +185,7 @@ export function ContractBuilder(p: BuilderProps) {
 
       {tab === "quanto" && (
         <InstrumentTab on={p.quanto.on} setOn={p.quanto.setOn} dis={dis} name="Quanto (price × volume correlation)"
-          desc="The targeted hedge for the renewable supplier's killer risk: it pays on the PRODUCT of shortfall volume and price excess. Payout = coverage × shortfall MWh × max(spot − strike, 0) — biggest exactly when wind is low (you're short) and prices are high at the same time.">
+          desc="The targeted hedge for the renewable supplier's killer risk: it pays on the PRODUCT of shortfall volume and price excess. Payout = coverage × shortfall MWh × max(spot − strike, 0), biggest exactly when wind is low (you're short) and prices are high at the same time.">
           <div className="controls">
             <Slider label="Strike" v={p.quanto.strike} min={40} max={300} step={5} fmt={(x) => `£${x}/MWh`} on={p.quanto.setStrike} dis={dis || !p.quanto.on} />
             <Slider label="Coverage" v={p.quanto.coverage} min={0} max={100} step={5} fmt={(x) => `${x}% of short`} on={p.quanto.setCoverage} dis={dis || !p.quanto.on} />
@@ -196,7 +196,7 @@ export function ContractBuilder(p: BuilderProps) {
 
       {tab === "dsr" && (
         <InstrumentTab on={p.dsr.on} setOn={p.dsr.setOn} dis={dis} name="Demand-side response (DSR)"
-          desc="Shed contracted demand when the market is expensive. Above the threshold price we curtail up to the DSR volume out of the shortfall, so peak demand stops being bought at punitive prices — a volume hedge on the demand side.">
+          desc="Shed contracted demand when the market is expensive. Above the threshold price we curtail up to the DSR volume out of the shortfall, so peak demand stops being bought at punitive prices, a volume hedge on the demand side.">
           <div className="controls">
             <Slider label="Trigger price" v={p.dsr.threshold} min={50} max={400} step={10} fmt={(x) => `£${x}/MWh`} on={p.dsr.setThreshold} dis={dis || !p.dsr.on} />
             <Slider label="Shed volume" v={p.dsr.mw} min={0} max={500} step={10} fmt={(x) => `${x} MW`} on={p.dsr.setMW} dis={dis || !p.dsr.on} />
@@ -218,7 +218,7 @@ export function ContractBuilder(p: BuilderProps) {
 
       {tab === "floor" && (
         <InstrumentTab on={p.floor.on} setOn={p.floor.setOn} dis={dis} name="Floor (put on price)"
-          desc="Protects the generation/sell side: guarantees a minimum sale price on exported surplus. Pays max(strike − spot, 0) on every surplus MWh sold — a backstop against the cannibalisation/low-price (and negative-price) problem when renewables run hard.">
+          desc="Protects the generation/sell side: guarantees a minimum sale price on exported surplus. Pays max(strike − spot, 0) on every surplus MWh sold, a backstop against the cannibalisation/low-price (and negative-price) problem when renewables run hard.">
           <div className="controls">
             <Slider label="Floor strike" v={p.floor.strike} min={0} max={150} step={5} fmt={(x) => `£${x}/MWh`} on={p.floor.setStrike} dis={dis || !p.floor.on} />
           </div>
@@ -238,7 +238,7 @@ export function ContractBuilder(p: BuilderProps) {
 
       {tab === "windIndex" && (
         <InstrumentTab on={p.windIndex.on} setOn={p.windIndex.setOn} dis={dis} name="Wind-index swap"
-          desc="A volume hedge that settles against the REAL weighted wind-farm wind speed (Hornsea, Dogger Bank, Walney, Whitelee… at 100 m). Pays tick × max(strike − wind speed, 0) — cash arrives in low-wind periods to offset buying replacement power, free of operational basis (it pays on the index, not your meter).">
+          desc="A volume hedge that settles against the REAL weighted wind-farm wind speed (Hornsea, Dogger Bank, Walney, Whitelee… at 100 m). Pays tick × max(strike − wind speed, 0), cash arrives in low-wind periods to offset buying replacement power, free of operational basis (it pays on the index, not your meter).">
           <div className="controls">
             <Slider label="Wind-speed strike" v={p.windIndex.strikeWind} min={2} max={15} step={0.5} fmt={(x) => `${x} m/s`} on={p.windIndex.setStrikeWind} dis={dis || !p.windIndex.on} />
             <Slider label="Tick" v={p.windIndex.tick} min={0} max={10000} step={250} fmt={(x) => `£${x}/(m/s)·period`} on={p.windIndex.setTick} dis={dis || !p.windIndex.on} />
@@ -249,11 +249,11 @@ export function ContractBuilder(p: BuilderProps) {
 
       {tab === "temp" && (
         <InstrumentTab on={p.temp.on} setOn={p.temp.setOn} dis={dis} name="Weather derivative (HDD / CDD)"
-          desc="A demand-volume hedge settling on the REAL weighted temperature. HDD pays in cold spells (heating demand up), CDD in hot spells — degree-days × tick, so cash arrives exactly when weather drives your customers' consumption and your shortfall up.">
+          desc="A demand-volume hedge settling on the REAL weighted temperature. HDD pays in cold spells (heating demand up), CDD in hot spells, degree-days × tick, so cash arrives exactly when weather drives your customers' consumption and your shortfall up.">
           <div className="controls">
             <div className="ctrl">
               <label>Mode</label>
-              <button disabled={dis || !p.temp.on} onClick={() => p.temp.setMode(p.temp.mode === "HDD" ? "CDD" : "HDD")} style={{ background: "#21262d", width: "100%" }}>{p.temp.mode === "HDD" ? "HDD — pays on cold" : "CDD — pays on heat"}</button>
+              <button disabled={dis || !p.temp.on} onClick={() => p.temp.setMode(p.temp.mode === "HDD" ? "CDD" : "HDD")} style={{ background: "#21262d", width: "100%" }}>{p.temp.mode === "HDD" ? "HDD, pays on cold" : "CDD, pays on heat"}</button>
             </div>
             <Slider label="Base temperature" v={p.temp.base} min={5} max={25} step={1} fmt={(x) => `${x} °C`} on={p.temp.setBase} dis={dis || !p.temp.on} />
             <Slider label="Tick" v={p.temp.tick} min={0} max={20000} step={500} fmt={(x) => `£${x}/°C·day`} on={p.temp.setTick} dis={dis || !p.temp.on} />
@@ -264,15 +264,15 @@ export function ContractBuilder(p: BuilderProps) {
 
       {tab === "proxy" && (
         <InstrumentTab on={p.proxy.on} setOn={p.proxy.setOn} dis={dis} name="Proxy revenue swap"
-          desc="Fixes the value of generation: pays the contract when price is below the fixed level, receives when above — stabilises generation revenue (bankability).">
+          desc="Fixes the value of generation: pays the contract when price is below the fixed level, receives when above, stabilises generation revenue (bankability).">
           <PayoffChart kind="proxy" />
         </InstrumentTab>
       )}
 
       {tab === "imbalance" && (
         <InstrumentTab on={p.imbalance.on} setOn={p.imbalance.setOn} dis={dis} name="Settle residual at cash-out (imbalance)"
-          desc="Settlement realism, not a hedge. When ON, the generation-deficit shortfall and exported surplus settle at the REAL single imbalance (cash-out) price — systemBuyPrice / systemSellPrice from Elexon — instead of day-ahead. Battery charge and every hedge still reference day-ahead, so the punitive cash-out vs day-ahead basis (the last-mile risk) shows up directly in the effective price.">
-          <p className="muted">No dials — this re-prices the unhedged residual at the real cash-out price. Watch the red ‘cash-out (imbalance)’ line vs the blue day-ahead line on the price panel.</p>
+          desc="Settlement realism, not a hedge. When ON, the generation-deficit shortfall and exported surplus settle at the REAL single imbalance (cash-out) price, systemBuyPrice / systemSellPrice from Elexon, instead of day-ahead. Battery charge and every hedge still reference day-ahead, so the punitive cash-out vs day-ahead basis (the last-mile risk) shows up directly in the effective price.">
+          <p className="muted">No dials, this re-prices the unhedged residual at the real cash-out price. Watch the red ‘cash-out (imbalance)’ line vs the blue day-ahead line on the price panel.</p>
         </InstrumentTab>
       )}
 
@@ -318,7 +318,7 @@ function PayoffChart(props: PayoffProps) {
     // what we pay generators (flat PPA) vs the market price we'd otherwise pay
     const data = grid.map((price) => ({ price, ppa: props.ppa, market: price }));
     return (
-      <ChartFrame title="PPA price vs market — our buy cost (diagram)">
+      <ChartFrame title="PPA price vs market, our buy cost (diagram)">
         <LineChart data={data}>
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="price" {...AXIS} tickFormatter={(x) => `£${x}`} />
@@ -336,7 +336,7 @@ function PayoffChart(props: PayoffProps) {
     // the supplier margin per MWh sold: tariff (sell) minus PPA (buy), vs market
     const data = grid.map((price) => ({ price, tariff: props.tariff, ppa: props.ppa, market: price }));
     return (
-      <ChartFrame title="Retail tariff vs PPA & market — our sell vs buy (diagram)">
+      <ChartFrame title="Retail tariff vs PPA & market, our sell vs buy (diagram)">
         <LineChart data={data}>
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="price" {...AXIS} tickFormatter={(x) => `£${x}`} />
@@ -392,7 +392,7 @@ function PayoffChart(props: PayoffProps) {
     // effective cost of the swapped block is flat at the fixed rate vs variable spot
     const data = grid.map((price) => ({ price, fixed: props.fixed, unhedged: price }));
     return (
-      <ChartFrame title="Baseload swap — block cost vs market (diagram)">
+      <ChartFrame title="Baseload swap, block cost vs market (diagram)">
         <LineChart data={data}>
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="price" {...AXIS} tickFormatter={(x) => `£${x}`} />
@@ -410,7 +410,7 @@ function PayoffChart(props: PayoffProps) {
     // bought-volume price is capped at the strike when exercised (spot above strike)
     const data = grid.map((price) => ({ price, effective: Math.min(price, props.strike), unhedged: price }));
     return (
-      <ChartFrame title="Swing — effective buy price on exercised volume (diagram)">
+      <ChartFrame title="Swing, effective buy price on exercised volume (diagram)">
         <LineChart data={data}>
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="price" {...AXIS} tickFormatter={(x) => `£${x}`} />

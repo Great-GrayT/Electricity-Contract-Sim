@@ -1,6 +1,6 @@
 /** Seedable RNG + samplers. Deterministic for reproducible Monte-Carlo. */
 
-/** mulberry32 PRNG — fast, seedable, good enough for simulation. */
+/** mulberry32 PRNG, fast, seedable, good enough for simulation. */
 export function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return function () {
@@ -26,7 +26,7 @@ export function gaussianFrom(u: () => number): () => number {
   };
 }
 
-/** Poisson sampler (Knuth) — fine for the small per-period intensities used here. */
+/** Poisson sampler (Knuth), fine for the small per-period intensities used here. */
 export function poissonFrom(u: () => number): (lambda: number) => number {
   return function (lambda: number) {
     if (lambda <= 0) return 0;

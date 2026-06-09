@@ -44,7 +44,7 @@ export function ReplayView({ ds }: { ds: Dataset }) {
   const [batMW, setBatMW] = useState(50);
   const [batDur, setBatDur] = useState(2);
   const [proxyOn, setProxyOn] = useState(false);
-  // additional structured instruments — buy side
+  // additional structured instruments, buy side
   const [swapOn, setSwapOn] = useState(false);
   const [swapFixed, setSwapFixed] = useState(80);
   const [swapBlockMW, setSwapBlockMW] = useState(200);
@@ -61,7 +61,7 @@ export function ReplayView({ ds }: { ds: Dataset }) {
   const [tempBase, setTempBase] = useState(15);
   const [tempTick, setTempTick] = useState(5000);
   const [tempMode, setTempMode] = useState<"HDD" | "CDD">("HDD");
-  // additional structured instruments — generation side
+  // additional structured instruments, generation side
   const [floorOn, setFloorOn] = useState(false);
   const [floorStrike, setFloorStrike] = useState(50);
   const [cfdOn, setCfdOn] = useState(false);
@@ -74,7 +74,7 @@ export function ReplayView({ ds }: { ds: Dataset }) {
   const [speed, setSpeed] = useState(20);
 
   // reference averages for sizing estimates: trailing 1 year of real data ending at the chosen start
-  // (no look-ahead — how a desk would size a contract). Falls back to whole history before a start is set.
+  // (no look-ahead, how a desk would size a contract). Falls back to whole history before a start is set.
   const refAvg = useMemo(() => {
     const fuels = ["windOffshore", "windOnshore", "solar", "biomass"].map((c) => ds.col(c));
     const load = ds.col("load");
@@ -267,7 +267,7 @@ export function ReplayView({ ds }: { ds: Dataset }) {
     <div>
       <div className="card full">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-          <h2 style={{ margin: 0 }}>Replay — pick a start, set the contract, step through real data</h2>
+          <h2 style={{ margin: 0 }}>Replay, pick a start, set the contract, step through real data</h2>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <span className="muted">resolution</span>
             {(["day", "hour", "hh"] as Resolution[]).map((r) => (

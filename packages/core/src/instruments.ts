@@ -4,7 +4,7 @@ import { isNum, std, mean, sum, conditionalVaR } from "./stats.js";
 
 /**
  * Phase 3 instruments. Two kinds of output:
- *  - PRICING premia/Greeks come from pricing.ts (model forward + vol) — MODEL-DERIVED.
+ *  - PRICING premia/Greeks come from pricing.ts (model forward + vol), MODEL-DERIVED.
  *  - EFFECTIVENESS here is a REAL backtest: instrument payoffs evaluated against the
  *    real day-ahead price path, measuring how much each cuts margin variance / tail risk.
  */
@@ -90,7 +90,7 @@ export function proxyRevenueSwap(ds: Dataset, ownGenMwh: Float64Array): ProxySwa
     byYear.set(y, (byYear.get(y) ?? 0) + g * pr);
   }
   const annual = [...byYear.entries()].sort((a, b) => a[0] - b[0]).map(([year, revenue]) => ({ year, revenue }));
-  // use only full years (drop partial first/last if short) — keep all, note partial 2026
+  // use only full years (drop partial first/last if short), keep all, note partial 2026
   const revs = Float64Array.from(annual.map((a) => a.revenue));
   const fair = mean(revs);
   return {

@@ -20,7 +20,7 @@ export const COLUMN_ALIASES: Record<string, string> = {
   wind_speed_10m: "windSpeed10m",
   wind_speed_100m: "windSpeed100m",
   epoch_ms: "epochMs",
-  // merged from gb_renewable_datasets.xlsx — imbalance / BM / weighted weather / FR clearing prices
+  // merged from gb_renewable_datasets.xlsx, imbalance / BM / weighted weather / FR clearing prices
   systemSellPrice: "imbalanceSell",
   systemBuyPrice: "imbalanceBuy",
   netImbalanceVolume: "niv",

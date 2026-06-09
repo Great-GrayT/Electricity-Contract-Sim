@@ -145,7 +145,7 @@ Give each chart descriptive `alt` text (the slide caption is a good basis).
 - Verify color contrast: use `--text` for body on light, `--ice`/white on dark, and reserve `--muted` for non-essential captions.
 
 **SEO**
-- All slide copy is real text. Set the home page `<title>` and meta description (suggest title: "Managing Volume, Price and Volatility Exposure — GB Renewable Supplier Toolkit"). One `<h1>` only.
+- All slide copy is real text. Set the home page `<title>` and meta description (suggest title: "Managing Volume, Price and Volatility Exposure, GB Renewable Supplier Toolkit"). One `<h1>` only.
 
 **Performance**
 - Lazy-load below-the-fold charts; the cover should be light. Fonts via `display=swap`, subset if added. Avoid large JS for the scroll behavior; CSS scroll-snap plus a small keyboard handler is enough.
@@ -163,9 +163,9 @@ Give each chart descriptive `alt` text (the slide caption is a good basis).
 
 Five sections, 21 slides. `theme` is the background. Copy is final and em-dash-free; use it verbatim. Layout notes describe the intended composition; adapt responsively per section 8.
 
-### Section A — Intro
+### Section A, Intro
 
-**Slide 1 — Cover.** theme: dark.
+**Slide 1, Cover.** theme: dark.
 - Kicker: `ENERGY TRADING · RISK MANAGEMENT · GB POWER`
 - Title (h1): `Managing Volume, Price & Volatility Exposure` (render "& Volatility Exposure" in `--green`).
 - Lead (italic): `A GB renewable-backed supplier's toolkit of options and structured flexibility.`
@@ -176,7 +176,7 @@ Five sections, 21 slides. `theme` is the background. Copy is final and em-dash-f
   - PRICE (amber, pound): `The wholesale level at which you buy shortfall or sell surplus, net of the capture discount.`
   - VOLATILITY (teal, chart): `How far prices swing, and how that swing is correlated with your own volume gap.`
 
-**Slide 2 — The problem you are hedging.** theme: light. kicker `PART 0 · THE EXPOSURE`. subtitle (italic, near title): `A renewable-backed supplier sits between two uncertain sides of one book.`
+**Slide 2, The problem you are hedging.** theme: light. kicker `PART 0 · THE EXPOSURE`. subtitle (italic, near title): `A renewable-backed supplier sits between two uncertain sides of one book.`
 - Two-sided book row: left card UPSTREAM (green edge) `Own wind, solar and storage plus PPAs. Volume is weather-driven, and worth least exactly when lots of renewables are running.`; a center node `GAP` / `half-hourly`; right card DOWNSTREAM (amber edge) `Demand that is also weather and behaviour driven, but which you have usually promised at a fixed or capped tariff.` Caption beneath: `The gap between the two sides, settled every half hour, is your exposure. Uncontracted, it ultimately cashes out at the punitive imbalance price.`
 - Three exposure cards (the third is highlighted on dark):
   1. Volume (green, wind): `Generation does not equal demand, MWh by MWh. Every gap is bought or sold in the market.`
@@ -189,9 +189,9 @@ Five sections, 21 slides. `theme` is the background. Copy is final and em-dash-f
   - Basis: `The index you hedge on differs from the one you settle on, and the two can drift apart.`
 - Footnote: `Framework: client risk report, Part 0. Every instrument that follows transfers one or more of these risks to a party better placed to carry it.`
 
-### Section B — Industry overview
+### Section B, Industry overview
 
-**Slide 3 — The market these instruments plug into.** theme: light. kicker `INDUSTRY OVERVIEW · GB POWER`.
+**Slide 3, The market these instruments plug into.** theme: light. kicker `INDUSTRY OVERVIEW · GB POWER`.
 - Left: four stat tiles (2x2):
   - `41.7%` (green): `renewables share of generation, 2020 to 2026 sample average`
   - `54%` (green): `renewable share reached by 2026, from 34% in 2021`
@@ -201,19 +201,19 @@ Five sections, 21 slides. `theme` is the background. Copy is final and em-dash-f
 - Bottom: four plumbing cards (deep icon badges): NESO `Operates the system and the Balancing Mechanism in real time.`; Elexon `Administers the Balancing & Settlement Code; one cash-out price.`; REGO `Certificates evidence each MWh of renewable supply.`; CfD AR7 `About 14.7 GW secured; contracts now run to 20 years.`
 - Footnote: `Source: GB market data, 2020 to 2026; client risk report, Sections 0 and 2. Post-REMA (July 2025) kept a single national wholesale price.`
 
-**Slide 4 — A volatile backdrop, set by gas.** theme: light. kicker `INDUSTRY OVERVIEW · DEMAND & PRICE`.
+**Slide 4, A volatile backdrop, set by gas.** theme: light. kicker `INDUSTRY OVERVIEW · DEMAND & PRICE`.
 - Two charts side by side:
   - `demand-profile-by-hour.png`, caption `Average demand by hour, 2020 to 2026. A stable U-shape: about 21 GW overnight, rising to a 32 to 34 GW peak at 16:00 to 19:00.`
   - `day-ahead-prices-by-hour-year.png`, caption `Average day-ahead price by hour and year. The 2021 to 2022 shock to roughly £198/MWh, then a partial 2026 rebound to about £92.`
 - Three narrative cards: `2021` (amber) `Post-COVID reopening lifted fuel demand into constrained gas supply. Low wind output and the IFA interconnector fire tightened the system toward record prices.`; `2022` (red) `The Russia-Ukraine war drove a European gas-price spike and risk premium, fed in through gas-fired marginal generation, plus high carbon costs and French nuclear outages.`; `The mechanism` (teal) `Not a demand story. Gas sets the GB clearing price most of the time, so gas costs pass straight into power. Marginal pricing then amplifies the shock.`
 - Footnote: `Source: GB day-ahead and demand data, 2020 to 2026; client risk report, Section 0. Gas set the power price about 97% of the time in 2021 on 37% of generation.`
 
-**Slide 5 — From fossil-led flexibility to a wind-heavy system.** theme: light. kicker `INDUSTRY OVERVIEW · THE TRANSITION`.
+**Slide 5, From fossil-led flexibility to a wind-heavy system.** theme: light. kicker `INDUSTRY OVERVIEW · THE TRANSITION`.
 - Two charts: `generation-mix-2020-2026.png` caption `Generation mix, 2020 to 2026. Fossil share falls as renewables climb above half of output.`; `generation-by-fuel-year.png` caption `Generation by fuel and year, in MW. Gas stays the largest single source but its share shrinks; coal reaches zero.`
 - Four stat tiles: `33.8% > 54.2%` (green) `renewable share of generation, 2021 to 2026`; `20.3% > 38.2%` (green) `wind share: the transition is wind-led`; `Coal > 0` (slate) `coal generation reaches zero by 2025`; `9.8 GW` (amber) `average gas, swinging 6.6 GW overnight to 13.3 GW at 18:00`.
 - Footnote: `Source: GB generation-by-fuel data, 2020 to 2026; client risk report, Section 0. Gas remains the flexible backbone even as its share falls.`
 
-**Slide 6 — When you generate is not when demand peaks.** theme: light. kicker `INDUSTRY OVERVIEW · THE RENEWABLE SHAPE`.
+**Slide 6, When you generate is not when demand peaks.** theme: light. kicker `INDUSTRY OVERVIEW · THE RENEWABLE SHAPE`.
 - Left: chart `hourly-generation-radar.png`, caption `Average hourly generation by fuel. Solar bulges at midday; gas and pumped storage swing out into the evening.`
 - Right: four rows (icon + title + line), the last highlighted on dark:
   - Solar (green, sun): `Near zero overnight rising to about 4.8 GW at midday. The strongest daily shape of any source.`
@@ -222,21 +222,21 @@ Five sections, 21 slides. `theme` is the background. Copy is final and em-dash-f
   - The mismatch (deep, dark card): `Demand peaks at 18:00 when solar is gone. The gap between when you generate and when demand peaks is profile risk.`
 - Footnote: `Source: GB hourly generation data, 2020 to 2026; client risk report, Section 0. The diurnal mismatch is the root of shape and profile risk.`
 
-**Slide 7 — Seasonality and the weather drivers.** theme: light. kicker `INDUSTRY OVERVIEW · SEASONALITY`.
+**Slide 7, Seasonality and the weather drivers.** theme: light. kicker `INDUSTRY OVERVIEW · SEASONALITY`.
 - Left: chart `wind-vs-solar-monthly.png`, caption `Total wind versus solar by month. Wind leads winter, solar leads summer, so they partly offset.`
 - Right: two smaller charts stacked: `wind-output-windspeed-temp.png` caption `Wind output with 10 m and 100 m wind speed and temperature.`; `solar-output-temp.png` caption `Solar output with temperature. Solar tracks daylight and the seasons.`
 - Four correlation tiles (big value + label): `r = +0.74` (green) `wind output vs 100 m wind speed`; `r = -0.66` (teal) `wind output vs temperature`; `r = +0.71` (amber) `solar output vs temperature`; `r = -0.41` (deep) `solar vs wind, month to month`.
 - Summary line (italic muted): `Wind averages 5.86 GW with winter output about 2.7 times summer; solar averages 1.46 GW and is up about 53% since 2020. Wind is roughly 4 times solar and about 80% of combined renewable output.`
 - Footnote: `Source: GB monthly generation and ERA5-style weather data, 2020 to 2026; client risk report, Section 0.`
 
-**Slide 8 — Cannibalisation: most output when prices are lowest.** theme: white. kicker `INDUSTRY OVERVIEW > THE CORE PROBLEM` (amber kicker).
+**Slide 8, Cannibalisation: most output when prices are lowest.** theme: white. kicker `INDUSTRY OVERVIEW > THE CORE PROBLEM` (amber kicker).
 - Left: chart `cannibalisation.png`, caption `Representative day. Renewable output peaks at midday when the wholesale price is lowest, so the captured price falls below baseload.`
 - Right: lead (italic): `The single most important risk for a renewable supplier.` Two stat callouts: `£103` (teal) `baseload average`; `£86` (amber) `captured price`. Three points (icon + text): `You produce most at midday and overnight, when the price you capture is lowest.`; `The capture rate erodes further as renewable penetration rises across the grid.`; `It leaves a basis between your hedge or CfD reference and the price you actually capture.` Then a dark callout (amber edge): `This is why naive volume hedging backfires, and why the rest of this toolkit exists.`
 - Footnote: `Source: client risk report, Figure 1 and Section 3. Capture price, or quality factor, is the revenue a fleet earns relative to the baseload average.`
 
-### Section C — The toolkit
+### Section C, The toolkit
 
-**Slide 9 — Fix price first, then attack what is left.** theme: light. kicker `PART 1 · THE FOUNDATION LAYER`.
+**Slide 9, Fix price first, then attack what is left.** theme: light. kicker `PART 1 · THE FOUNDATION LAYER`.
 - Lead (italic): `Before options, fix the bulk of price risk with linear, delta-one instruments. They are cheap and liquid, but they manage price only, which is exactly the gap everything after this fills.`
 - Two instrument cards (left), each with a `LINEAR` tag:
   - Forwards & futures (teal, chart): WHAT `Buy or sell a flat block of power for a future period at a price fixed today. Traded as seasons, quarters, months and EFA blocks.` SET `Delivery period, shape (baseload or peak), MW notional, price, cleared on ICE or EEX or bilateral.` APPLY `Lock the price on the predictable core of net demand: the volume you will need whatever the weather.`
@@ -244,7 +244,7 @@ Five sections, 21 slides. `theme` is the background. Copy is final and em-dash-f
 - Right dark panel `Why a forward is not enough` (amber edge): `A forward fixes price for an assumed volume. If the wind under-delivers, you have fixed the price on power you no longer have, and must buy the gap at the spot or imbalance price. That residual is what the rest of the toolkit manages.` Two sub-tiles: `Financial options` (green, shield) `Caps, floors, collars, swing options, swaptions.` italic `Price conditional on volume.`; `Structured flexibility` (amber, cubes) `PPAs, proxy swaps, VFAs, batteries, tolling, DSR.` italic `Shape and volatility itself.`
 - Footnote: `Framework: client risk report, Part 1. Linear hedges manage price level; the two families that follow manage volume, shape and volatility.`
 
-**Slide 10 — The price-tail toolkit.** theme: light. kicker `PART 2 · VANILLA OPTIONS`. subtitle (italic): `Pay a premium for protection while keeping the upside.`
+**Slide 10, The price-tail toolkit.** theme: light. kicker `PART 2 · VANILLA OPTIONS`. subtitle (italic): `Pay a premium for protection while keeping the upside.`
 - 2x2 instrument cards (WHAT and APPLY each):
   - Cap (amber, shield; tag `call`): WHAT `Right to buy power at strike K; pays when price is above K.` APPLY `A ceiling on the cost of power you must buy. Pays out when a wind lull meets a price spike.`
   - Floor (green, down; tag `put`): WHAT `Right to sell power at strike K; pays when price is below K.` APPLY `A minimum sale price for surplus generation. Guards against low and negative prices.`
@@ -253,7 +253,7 @@ Five sections, 21 slides. `theme` is the background. Copy is final and em-dash-f
 - Right: chart `zero-cost-collar.png`, caption `Zero-cost collar. The floor premium funds the cap, so the effective cost is locked in a band.` Below it a dark `Worked example` callout (amber edge): `Buy a £120/MWh cap and sell a roughly £45/MWh floor on your winter shortfall. Whatever the spot does, your effective purchase price is locked between the two, and the premium nets to close to nil.`
 - Footnote: `Framework: client risk report, Part 2 and Figure 2. The collar is the workhorse for the residual purchase book.`
 
-**Slide 11 — For shape and the correlation problem.** theme: light. kicker `PART 3 · STRUCTURED & EXOTIC OPTIONS`.
+**Slide 11, For shape and the correlation problem.** theme: light. kicker `PART 3 · STRUCTURED & EXOTIC OPTIONS`.
 - Hero dark card: `Swing option · volume optionality` (green, RefreshCw), tag `MOST USEFUL FOR SHAPE`. WHAT `A contract to vary how much you take within agreed bounds at a pre-agreed price: a forward with a dimmer switch on volume.` APPLY `Follow your residual shape cheaply: take more when renewables under-deliver, less when they over-deliver.` On the right of the hero, a "dimmer" illustration: a horizontal track labelled `VOLUME YOU TAKE` with `min` and `max` markers and a slider knob, captioned `take more on low-generation days, less on high`.
 - Three cards below:
   - Asian / average-rate (teal, compress): WHAT `The payoff is based on the average reference price over a period, not a single fix.` SET `Averaging window and frequency, strike, notional.` APPLY `Matches a supplier's continuous, averaged cost; removes single-day fixing risk and is cheaper than the vanilla.`
@@ -261,7 +261,7 @@ Five sections, 21 slides. `theme` is the background. Copy is final and em-dash-f
   - Strips & series (deep, layers): WHAT `A portfolio of options across many delivery periods bundled into one trade.` SET `The schedule of strikes, periods and notionals.` APPLY `Match a whole season's protection in one ticket; the standard way to express a view across a delivery year.`
 - Footnote: `Framework: client risk report, Part 3. Vanilla options fix the price tail; these structures attack shape and the volume-to-price correlation directly.`
 
-**Slide 12 — PPAs: the master structure.** theme: light. kicker `PART 4 · STRUCTURED FLEXIBILITY`. subtitle (italic): `Who carries which risk depends entirely on the volume structure.`
+**Slide 12, PPAs: the master structure.** theme: light. kicker `PART 4 · STRUCTURED FLEXIBILITY`. subtitle (italic): `Who carries which risk depends entirely on the volume structure.`
 - Lead (italic): `A long-term contract to buy a generator's output. The flavour you pick decides how much shape and volume risk lands back on you to manage with everything else here.`
 - Table. Columns: Structure, Volume, Shape, Price, Best for. Color-code the risk cells: Buyer = amber tint/text, Seller = teal tint/text, Shared = green tint/text, Pre-agreed = slate tint/text. Rows:
   - Pay-as-produced | Buyer | Buyer | Buyer | `Generator wants max revenue; buyer can absorb shape`
@@ -272,7 +272,7 @@ Five sections, 21 slides. `theme` is the background. Copy is final and em-dash-f
 - Right column: Physical PPA (teal, plug) WHAT `Real MWh and REGO certificates are delivered; you take title and balance the volume.` APPLY `Direct green sourcing you control and shape yourself.`; Virtual / financial PPA (deep, swap) WHAT `No physical flow; a swap settles against a strike, REGOs transfer separately.` APPLY `A private CfD: a fixed price without taking the power.`; then a dark `Your anchor` callout (green edge, layers): `Secures green volume and a known cost on the sourcing side: the slow-moving base of the stack.`
 - Footnote: `Framework: client risk report, Part 4.1. Term is typically 10 to 20 years or more; price can be fixed, indexed, discount-to-market, or floor-plus-share.`
 
-**Slide 13 — Securing revenue beyond the PPA.** theme: light. kicker `PART 4 · ROUTE TO MARKET & REVENUE`.
+**Slide 13, Securing revenue beyond the PPA.** theme: light. kicker `PART 4 · ROUTE TO MARKET & REVENUE`.
 - Seven compact cards (icon + name + WHAT + APPLY). Highlight "Proxy revenue swap" with a `WORKHORSE` tag on a dark card.
   - Government CfD (teal, hands): WHAT `Two-way contract with the state counterparty: topped up to or paid down to a fixed strike.` APPLY `Turns merchant price risk into near-fixed revenue; removes most cannibalisation risk.`
   - Private / corporate CfD (deep, swap): WHAT `The same difference-settled mechanic, contracted privately (often a VPPA).` APPLY `A fixed effective price without owning the asset, on terms you control.`
@@ -283,7 +283,7 @@ Five sections, 21 slides. `theme` is the background. Copy is final and em-dash-f
   - Sleeving (deep, route): WHAT `You sit in the middle, routing power from a generator to a corporate buyer for a fee.` APPLY `A service line that also helps match your own book to demand that fits its profile.`
 - Footnote: `Framework: client risk report, Parts 4.2 to 4.8. The proxy revenue swap is the only single instrument that addresses volume, price and volatility at once.`
 
-**Slide 14 — Real optionality at the last mile.** theme: light. kicker `PART 5 · PHYSICAL & DEMAND-SIDE FLEXIBILITY`.
+**Slide 14, Real optionality at the last mile.** theme: light. kicker `PART 5 · PHYSICAL & DEMAND-SIDE FLEXIBILITY`.
 - Left: chart `battery-arbitrage.png`, caption `Battery arbitrage on a representative day: charge through the cheap troughs, discharge into the evening peak, tracked by state of charge.`
 - Right: four rows (icon + title + line):
   - Battery / storage (green, battery; tag `VOLATILITY PLAY`): `Charge when power is cheap or surplus, discharge when scarce. Time-shifts surplus into the peak and arbitrages intraday swings.`
@@ -292,7 +292,7 @@ Five sections, 21 slides. `theme` is the background. Copy is final and em-dash-f
   - Balancing Mechanism (deep, settings): `Forecasting plus intraday trading and BM bids minimise the volume left to settle at the punitive cash-out price.`
 - Footnote: `Framework: client risk report, Part 5 and Figure 3. These give optionality through physical control, often the cheapest way to handle the half-hourly mismatch.`
 
-**Slide 15 — Hedging volume, and the correlation, directly.** theme: light. kicker `PART 6 · WEATHER & VOLUME DERIVATIVES`.
+**Slide 15, Hedging volume, and the correlation, directly.** theme: light. kicker `PART 6 · WEATHER & VOLUME DERIVATIVES`.
 - Lead (italic): `Everything so far mostly hedges price. These hedge volume, and the best of them hedge the covariance that is the renewable supplier's core enemy.`
 - Left: two instrument cards:
   - Wind / generation index swap (green, wind): WHAT `Settles against a production index (site or regional wind speed or load factor), not output you must deliver.` APPLY `Receive a payout in low-wind periods to offset buying replacement power. A direct volume hedge, free of operational basis.`
@@ -300,9 +300,9 @@ Five sections, 21 slides. `theme` is the background. Copy is final and em-dash-f
 - Right dark `Quanto` hero (green, target), tag `THE CORRELATION HEDGE`: WHAT `A payoff that depends on the product of two variables, typically price times volume, and sometimes weather too. It pays on the combination, not each leg separately.` APPLY `Built for the killer risk. It hedges the covariance directly, which separate price and volume hedges cannot do as cleanly.` Then three condition chips joined by plus signs: `Cold` (snowflake) + `High price` (up) + `You are short` (down), leading to a green bar: `all at once > the quanto pays out`.
 - Footnote: `Framework: client risk report, Part 6. A quanto can pay when it is cold and prices are high and you are short, all at the same moment.`
 
-### Section D — Synthesis
+### Section D, Synthesis
 
-**Slide 16 — The hedging stack: anchor to last mile.** theme: white. kicker `PART 7 · PUTTING IT TOGETHER`.
+**Slide 16, The hedging stack: anchor to last mile.** theme: white. kicker `PART 7 · PUTTING IT TOGETHER`.
 - Lead (italic): `No single instrument solves everything. Real desks layer them, from the slow-moving anchor down to the half-hourly residual.`
 - Six stacked bands, each: a timescale chip, a layer name, the instruments, and a "KILLS" note. Color per band.
   - `YEARS` | Anchor (deep) | `Long-dated PPA or CfD for route to market, plus REGOs for green backing.` | KILLS `Most asset-side price & cannibalisation`
@@ -313,7 +313,7 @@ Five sections, 21 slides. `theme` is the background. Copy is final and em-dash-f
   - `INTRADAY to HALF-HOURLY` | Last mile (ink) | `Battery, DSR, tolling, plus Balancing Mechanism and intraday optimisation.` | KILLS `Final imbalance at cash-out`
 - Footnote: `Framework: client risk report, Part 7. Build top-down: anchor the asset side, fix the price core, then spend the hedging budget on shape and correlation.`
 
-**Slide 17 — Exposure to instrument map.** theme: light. kicker `PART 7 · QUICK REFERENCE`.
+**Slide 17, Exposure to instrument map.** theme: light. kicker `PART 7 · QUICK REFERENCE`.
 - Left table: Exposure | Primary tools.
   - Price level | `Forwards, swaps, caps, collars, swaptions; CfD / VPPA`
   - Price spikes (tail) | `Caps, collars, spark-spread options, battery / tolling`
@@ -338,14 +338,14 @@ Five sections, 21 slides. `theme` is the background. Copy is final and em-dash-f
   - Legend: filled = primary lever; ring = secondary effect; small dot = limited / not the tool.
 - Footnote: `Framework: client risk report, Part 7 and Section 6 matrix. The proxy revenue swap is the row that lights up across all three exposures.`
 
-**Slide 18 — Layering the stack compresses risk.** theme: light. kicker `THE EVIDENCE · RISK REDUCTION` (amber kicker).
+**Slide 18, Layering the stack compresses risk.** theme: light. kicker `THE EVIDENCE · RISK REDUCTION` (amber kicker).
 - Two charts: `hedged-vs-unhedged-margin.png` caption `Monte-Carlo annual gross margin, hedged versus unhedged. Hedging narrows the spread and removes the fat left tail.`; `var-reduction-waterfall.png` caption `Illustrative attribution: each layer removes a slice of 95% Value-at-Risk, from £8.0m unhedged to a £0.4m residual.`
 - Three cards: `Tail cut, not just spread` (green) `Hedging lifts the 5% worst-case annual margin from about £2.3m to £3.9m. The protection is concentrated where the book is short into spikes.`; `Structure does the heavy lifting` (teal) `PPA shape removes about £2.2m of VaR and the proxy revenue swap a further £2.8m: together most of the structural work.`; `Options and flex trim the rest` (amber) `Collar and swing take off £1.1m, battery stacking £0.9m and demand flexibility £0.6m, down to a small residual.`
 - Footnote: `Source: client risk report, Figures 4 and 5 (illustrative synthetic Monte-Carlo outputs, included to show target form, not calibrated estimates).`
 
-### Section E — Context and close
+### Section E, Context and close
 
-**Slide 19 — How any of these is set.** theme: light. kicker `PART 8 · THE DIALS & THE PLUMBING`.
+**Slide 19, How any of these is set.** theme: light. kicker `PART 8 · THE DIALS & THE PLUMBING`.
 - Left label `THE DIALS THAT RECUR IN EVERY INSTRUMENT` then a 3x3 grid of dial cards (small color mark + name + note): Notional `MW or a shaped MWh schedule.`; Strike `Price or revenue level where protection bites.`; Premium / fee `What you pay for the right or service.`; Tenor & granularity `The period, and how finely it is measured.`; Reference index `What you settle against; a mismatch is basis.`; Exercise style `European, American, Bermudan or swing.`; Settlement `Cash (financial) or physical delivery.`; Credit & docs `ISDA, EFET, GTMA; collateral; counterparty.`; Green attributes `REGO transfer and additionality.`
 - Right dark panel `THE GB PLUMBING · 2025 TO 2026` with four grouped items (colored left bar + heading + body):
   - Wholesale references (green): `Day-ahead via N2EX (Nord Pool) and EPEX SPOT GB; forwards on ICE and EEX; the intraday EFA block and day structure.`
@@ -354,19 +354,19 @@ Five sections, 21 slides. `theme` is the background. Copy is final and em-dash-f
   - Post-REMA, decided July 2025 (light green): `GB kept a single national wholesale price; zonal pricing was rejected. Locational signals come through network charges (TNUoS), so there is no internal zonal basis to hedge.`
 - Footnote: `Framework: client risk report, Part 8 and Section 2. The dials are the negotiable parameters common to every contract above.`
 
-**Slide 20 — Matching first, then hedge the residual.** theme: light. kicker `CONTEXT · THE PEER-TO-PEER MODEL`.
+**Slide 20, Matching first, then hedge the residual.** theme: light. kicker `CONTEXT · THE PEER-TO-PEER MODEL`.
 - Flow row of three nodes joined by arrows: `Diverse generators` (green, wind) `Wind, solar and hydro with different correlation structures.` arrow to `ML half-hourly matching` (dark hub, network) `Names generators to consumers and optimises the match every half hour.` arrow to `Consumers` (amber, factory) `Corporate and domestic load on a fixed tariff with a price cap.` Caption beneath (italic): `The matching engine is itself a structured-flexibility product: it firms volume and shape physically, before any derivative is layered on.`
 - Two columns:
   - `Why it works` (teal edge): bullets `Decouples participants from the gas-indexed wholesale price.` / `Drives portfolio imbalance down to a fraction of a conventional supplier's.` / `The matching engine firms volume and shape before any hedge.` / `A fixed tariff with a price cap is, in effect, a cap option handed to the customer.`
   - `The residual you still hedge` (amber edge): bullets `Capture and cannibalisation on the generators being routed.` / `Spike protection on the thin residual still settled at cash-out.` / `Monetising flexibility (battery, DSR, agile tariffs) to turn volatility into margin, not only defend against it.`
 - Footnote: `Context: client risk report, Sections 2 and 7 (UrbanChain-style peer-to-peer renewable supply, Manchester, Ofgem-licensed).`
 
-**Slide 21 — Build the stack, top down.** theme: dark. kicker `HOW TO USE THIS` (green).
+**Slide 21, Build the stack, top down.** theme: dark. kicker `HOW TO USE THIS` (green).
 - Title (h2): `Build the stack, top down`.
 - Left: three numbered steps (large number + heading + line):
-  1. `Size your three exposures` — `Run volume, price and volatility on your actual book before choosing any instrument.`
-  2. `Anchor, then fix the core` — `Anchor the asset side with a PPA or CfD, then fix the predictable price core with forwards.`
-  3. `Spend on shape & correlation` — `Put the hedging budget where forwards fall short: swing options, quantos, VFAs and storage.`
+  1. `Size your three exposures`, `Run volume, price and volatility on your actual book before choosing any instrument.`
+  2. `Anchor, then fix the core`, `Anchor the asset side with a PPA or CfD, then fix the predictable price core with forwards.`
+  3. `Spend on shape & correlation`, `Put the hedging budget where forwards fall short: swing options, quantos, VFAs and storage.`
 - Right label `KEY TAKEAWAYS` then four tiles (check icon, accent edge):
   - (green) `Forwards and PPAs handle the price level; options handle price conditional on volume; structured flexibility handles shape and volatility.`
   - (teal) `The proxy revenue swap is the only single instrument that addresses all three exposures at once.`

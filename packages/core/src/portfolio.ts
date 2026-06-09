@@ -11,7 +11,7 @@ import { mulberry32 } from "./rng.js";
  * Builds one integrated book P&L from layered instruments, then derives an annual
  * gross-margin distribution by BLOCK-BOOTSTRAP of real history: whole real days
  * (48 periods) are resampled, preserving intraday shape and the real weather/price
- * dependence. This resamples real data — it invents nothing. From the distribution it
+ * dependence. This resamples real data, it invents nothing. From the distribution it
  * produces a VaR/CVaR waterfall attributing risk reduction to each layer, plus
  * real-day stress tests.
  */
@@ -94,8 +94,8 @@ function metricsOf(annual: Float64Array): RiskMetrics {
 
 /**
  * Stationary block-bootstrap of annual P&L from daily values. Consecutive real days are
- * drawn in geometric-length blocks (mean `meanBlockDays`) so serial dependence — the
- * year-to-year price regime persistence — survives, unlike an iid-day resample which the
+ * drawn in geometric-length blocks (mean `meanBlockDays`) so serial dependence, the
+ * year-to-year price regime persistence, survives, unlike an iid-day resample which the
  * CLT would collapse to a near-degenerate distribution.
  */
 export function bootstrapAnnual(

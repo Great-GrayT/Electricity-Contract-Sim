@@ -6,7 +6,7 @@ export async function loadDataset(): Promise<Dataset> {
     fetch("/data/gb.meta.json"),
     fetch("/data/gb.f64"),
   ]);
-  if (!metaRes.ok || !binRes.ok) throw new Error("dataset not found — run npm run extract + copy-data");
+  if (!metaRes.ok || !binRes.ok) throw new Error("dataset not found, run npm run extract + copy-data");
   const meta = (await metaRes.json()) as DatasetMeta;
   const buf = await binRes.arrayBuffer();
   const ds = Dataset.from(meta, buf);

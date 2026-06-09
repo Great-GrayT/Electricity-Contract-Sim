@@ -9,7 +9,7 @@ import { forwardFillInPlace } from "./stats.js";
  *
  * Columns are exposed by raw header ("Fossil Gas") or canonical alias ("fossilGas").
  * Derived series (totalWind, totalRenew, residualDemand, hourOfDay) are computed lazily
- * and cached. Blanks are NaN throughout — no value is synthesised.
+ * and cached. Blanks are NaN throughout, no value is synthesised.
  */
 export class Dataset {
   readonly rows: number;
@@ -43,7 +43,7 @@ export class Dataset {
 
   /**
    * Forward-fill NaN gaps in time for the given columns (default: all source columns except
-   * the time axes). Carries the last valid value forward — fills weather sampled on the hour
+   * the time axes). Carries the last valid value forward, fills weather sampled on the hour
    * across both half-hours, price/generation outages, etc. Mutates the underlying buffers and
    * invalidates derived series. Leading gaps stay NaN. Returns total entries filled.
    */
