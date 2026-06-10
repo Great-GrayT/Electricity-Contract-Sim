@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   ResponsiveContainer, LineChart, AreaChart, Line, Area, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, Legend,
 } from "recharts";
+import { useChartColors } from "../lib/theme";
 
 /** " · ~X.X GW · Y GWh/yr" sizing hint from an average-MW figure; empty if unavailable. */
 const sizeStr = (mw: number): string =>
@@ -16,10 +17,6 @@ const STRUCT_DESC: Record<string, string> = {
   nominated: "Pay-as-nominated: you receive the firm nomination, but you balance the asset's deviation from it at the cash-out/day-ahead price, you carry the forecast/balancing risk.",
   vfa: "Volume Firming Agreement: you keep the pay-as-produced asset, but a counterparty firms it to the firm level, the (actual − firm) gap settles at the day-ahead index, less a per-MWh firming fee.",
 };
-
-const AXIS = { stroke: "#8b949e", fontSize: 10 };
-const GRID = "#21262d";
-const TT = { background: "#161b22", border: "1px solid #30363d", fontSize: 12 };
 
 export interface BuilderProps {
   locked: boolean;
@@ -99,7 +96,7 @@ export function ContractBuilder(p: BuilderProps) {
               <Slider label="PPA price (we pay generators)" v={p.generators.ppaPrice} min={20} max={120} step={5} fmt={(x) => `£${x}/MWh`} on={p.generators.setPpaPrice} dis={dis} />
               <div className="ctrl">
                 <label>Volume structure</label>
-                <select title="PPA volume structure" disabled={dis} value={p.generators.structure} onChange={(e) => p.generators.setStructure(e.target.value as BuilderProps["generators"]["structure"])} style={{ width: "100%", background: "#21262d", color: "#e6edf3", border: "1px solid #30363d", padding: "6px" }}>
+                <select title="PPA volume structure" disabled={dis} value={p.generators.structure} onChange={(e) => p.generators.setStructure(e.target.value as BuilderProps["generators"]["structure"])} style={{ width: "100%", background: "var(--app-control-bg)", color: "var(--app-control-text)", border: "1px solid var(--app-border)", padding: "6px" }}>
                   <option value="payAsProduced">Pay-as-produced, take actual output (buyer risk)</option>
                   <option value="baseload">Baseload, flat firm block (seller firms)</option>
                   <option value="shaped">Shaped, actual within ±band of firm (shared)</option>
@@ -118,7 +115,7 @@ export function ContractBuilder(p: BuilderProps) {
               )}
               <div className="ctrl">
                 <label>Sell surplus to market</label>
-                <button disabled={dis} onClick={() => p.generators.setExportSurplus(!p.generators.exportSurplus)} style={{ background: p.generators.exportSurplus ? "#238636" : "#21262d", width: "100%" }}>{p.generators.exportSurplus ? "ON, export for income" : "OFF, curtail surplus"}</button>
+                <button disabled={dis} onClick={() => p.generators.setExportSurplus(!p.generators.exportSurplus)} style={{ background: p.generators.exportSurplus ? "#238636" : "var(--app-control-bg)", color: p.generators.exportSurplus ? "#fff" : "var(--app-control-text)", width: "100%" }}>{p.generators.exportSurplus ? "ON, export for income" : "OFF, curtail surplus"}</button>
               </div>
             </div>
             <PayoffChart kind="ppa" ppa={p.generators.ppaPrice} />
@@ -253,7 +250,7 @@ export function ContractBuilder(p: BuilderProps) {
           <div className="controls">
             <div className="ctrl">
               <label>Mode</label>
-              <button disabled={dis || !p.temp.on} onClick={() => p.temp.setMode(p.temp.mode === "HDD" ? "CDD" : "HDD")} style={{ background: "#21262d", width: "100%" }}>{p.temp.mode === "HDD" ? "HDD, pays on cold" : "CDD, pays on heat"}</button>
+              <button disabled={dis || !p.temp.on} onClick={() => p.temp.setMode(p.temp.mode === "HDD" ? "CDD" : "HDD")} style={{ background: "var(--app-control-bg)", color: "var(--app-control-text)", width: "100%" }}>{p.temp.mode === "HDD" ? "HDD, pays on cold" : "CDD, pays on heat"}</button>
             </div>
             <Slider label="Base temperature" v={p.temp.base} min={5} max={25} step={1} fmt={(x) => `${x} °C`} on={p.temp.setBase} dis={dis || !p.temp.on} />
             <Slider label="Tick" v={p.temp.tick} min={0} max={20000} step={500} fmt={(x) => `£${x}/°C·day`} on={p.temp.setTick} dis={dis || !p.temp.on} />
@@ -285,7 +282,7 @@ function InstrumentTab({ on, setOn, dis, name, desc, children }: { on: boolean; 
   return (
     <div>
       <div className="switch">
-        <button disabled={dis} onClick={() => setOn(!on)} style={{ background: on ? "#238636" : "#21262d" }}>{on ? "ON" : "OFF"}</button>
+        <button disabled={dis} onClick={() => setOn(!on)} style={{ background: on ? "#238636" : "var(--app-control-bg)", color: on ? "#fff" : "var(--app-control-text)" }}>{on ? "ON" : "OFF"}</button>
         <strong>{name}</strong>
       </div>
       <p className="muted" style={{ marginTop: 0 }}>{desc}</p>
@@ -311,6 +308,12 @@ type PayoffProps =
   | { kind: "retail"; tariff: number; ppa: number };
 
 function PayoffChart(props: PayoffProps) {
+  const c = useChartColors();
+  const AXIS = { stroke: c.axisColor, fontSize: 10 };
+  const GRID = c.gridColor;
+  const TT = { background: c.tooltipBg, border: `1px solid ${c.tooltipBorder}`, fontSize: 12 };
+  const axisColor = c.axisColor;
+
   const grid: number[] = [];
   for (let x = 0; x <= 300; x += 5) grid.push(x);
 
@@ -450,10 +453,10 @@ function PayoffChart(props: PayoffProps) {
       <ChartFrame title="Wind-index swap payout vs wind speed (diagram)">
         <LineChart data={data}>
           <CartesianGrid stroke={GRID} />
-          <XAxis dataKey="wind" {...AXIS} tickFormatter={(x) => `${x}`} label={{ value: "wind speed (m/s)", fill: "#8b949e", fontSize: 10, position: "insideBottom", dy: 10 }} height={36} />
+          <XAxis dataKey="wind" {...AXIS} tickFormatter={(x) => `${x}`} label={{ value: "wind speed (m/s)", fill: axisColor, fontSize: 10, position: "insideBottom", dy: 10 }} height={36} />
           <YAxis {...AXIS} tickFormatter={(x) => `${x}`} />
           <Tooltip contentStyle={TT} formatter={(v: number) => [`${v} × tick`, "payout"]} labelFormatter={(l) => `${l} m/s`} />
-          <ReferenceLine x={props.strikeWind} stroke="#8b949e" strokeDasharray="3 3" label={{ value: "strike", fill: "#8b949e", fontSize: 10 }} />
+          <ReferenceLine x={props.strikeWind} stroke={axisColor} strokeDasharray="3 3" label={{ value: "strike", fill: axisColor, fontSize: 10 }} />
           <Line dataKey="payoff" name="payout (low-wind)" stroke="#7ee787" dot={false} strokeWidth={2} />
         </LineChart>
       </ChartFrame>
@@ -468,10 +471,10 @@ function PayoffChart(props: PayoffProps) {
       <ChartFrame title={`${props.mode} payout vs temperature (diagram)`}>
         <LineChart data={data}>
           <CartesianGrid stroke={GRID} />
-          <XAxis dataKey="temp" {...AXIS} tickFormatter={(x) => `${x}°`} label={{ value: "temperature (°C)", fill: "#8b949e", fontSize: 10, position: "insideBottom", dy: 10 }} height={36} />
+          <XAxis dataKey="temp" {...AXIS} tickFormatter={(x) => `${x}°`} label={{ value: "temperature (°C)", fill: axisColor, fontSize: 10, position: "insideBottom", dy: 10 }} height={36} />
           <YAxis {...AXIS} tickFormatter={(x) => `${x}`} />
           <Tooltip contentStyle={TT} formatter={(v: number) => [`${v} DD × tick`, "payout"]} labelFormatter={(l) => `${l} °C`} />
-          <ReferenceLine x={props.base} stroke="#8b949e" strokeDasharray="3 3" label={{ value: "base", fill: "#8b949e", fontSize: 10 }} />
+          <ReferenceLine x={props.base} stroke={axisColor} strokeDasharray="3 3" label={{ value: "base", fill: axisColor, fontSize: 10 }} />
           <Line dataKey="dd" name={`${props.mode} payout`} stroke="#f0883e" dot={false} strokeWidth={2} />
         </LineChart>
       </ChartFrame>
@@ -488,7 +491,7 @@ function PayoffChart(props: PayoffProps) {
           <XAxis dataKey="price" {...AXIS} tickFormatter={(x) => `£${x}`} />
           <YAxis {...AXIS} domain={[-1.2, 1.2]} ticks={[-1, 0, 1]} tickFormatter={(v) => (v === 1 ? "discharge" : v === -1 ? "charge" : "idle")} width={70} />
           <Tooltip contentStyle={TT} formatter={(v: number) => [v === 1 ? "discharge" : v === -1 ? "charge" : "idle", "action"]} labelFormatter={(l) => `market £${l}`} />
-          <ReferenceLine x={ref} stroke="#8b949e" strokeDasharray="3 3" label={{ value: "ref", fill: "#8b949e", fontSize: 10 }} />
+          <ReferenceLine x={ref} stroke={axisColor} strokeDasharray="3 3" label={{ value: "ref", fill: axisColor, fontSize: 10 }} />
           <Area dataKey="action" stroke="#a371f7" fill="#a371f755" type="stepAfter" />
         </AreaChart>
       </ChartFrame>
@@ -504,7 +507,7 @@ function PayoffChart(props: PayoffProps) {
         <XAxis dataKey="price" {...AXIS} tickFormatter={(x) => `£${x}`} />
         <YAxis {...AXIS} tickFormatter={(x) => `£${x}`} />
         <Tooltip contentStyle={TT} formatter={(v: number) => [`£${v}/MWh`, "swap pays"]} labelFormatter={(l) => `market £${l}`} />
-        <ReferenceLine y={0} stroke="#8b949e" />
+        <ReferenceLine y={0} stroke={axisColor} />
         <ReferenceLine x={fixed} stroke="#d29922" strokeDasharray="3 3" />
         <Line dataKey="settlement" name="swap settlement" stroke="#7ee787" dot={false} strokeWidth={2} />
       </LineChart>

@@ -4,12 +4,23 @@ import {
   type IChartApi, type ISeriesApi, type UTCTimestamp, type SeriesMarker, type Time,
 } from "lightweight-charts";
 import type { Bar, Resolution } from "@gbsim/core";
+import { useTheme, type Theme } from "../lib/theme";
 
 export interface PriceChartHandle {
   setData: (bars: Bar[]) => void;
   update: (bar: Bar) => void;
   setStartMarker: (time: number | null) => void;
   fit: () => void;
+}
+
+function chartOptionsForTheme(theme: Theme) {
+  const dark = theme === "dark";
+  return {
+    layout: { background: { type: ColorType.Solid, color: dark ? "#0d1117" : "#ffffff" }, textColor: dark ? "#8b949e" : "#57606a" },
+    grid: { vertLines: { color: dark ? "#21262d" : "#eef1f4" }, horzLines: { color: dark ? "#21262d" : "#eef1f4" } },
+    timeScale: { borderColor: dark ? "#30363d" : "#d7dee3" },
+    rightPriceScale: { borderColor: dark ? "#30363d" : "#d7dee3" },
+  };
 }
 
 interface Props {
@@ -28,16 +39,17 @@ export const PriceChart = forwardRef<PriceChartHandle, Props>(function PriceChar
   const isLine = resolution === "hh";
   const cbRef = useRef({ onHoverTime, onClickTime });
   cbRef.current = { onHoverTime, onClickTime };
+  const { theme } = useTheme();
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
 
   useEffect(() => {
     const el = elRef.current!;
     const chart = createChart(el, {
       width: el.clientWidth,
       height: 360,
-      layout: { background: { type: ColorType.Solid, color: "#0d1117" }, textColor: "#8b949e" },
-      grid: { vertLines: { color: "#21262d" }, horzLines: { color: "#21262d" } },
-      timeScale: { timeVisible: true, secondsVisible: false, borderColor: "#30363d" },
-      rightPriceScale: { borderColor: "#30363d" },
+      ...chartOptionsForTheme(themeRef.current),
+      timeScale: { timeVisible: true, secondsVisible: false, borderColor: chartOptionsForTheme(themeRef.current).timeScale.borderColor },
       crosshair: {
         mode: CrosshairMode.Normal,
         vertLine: { color: "#58a6ff", width: 1, style: LineStyle.Solid, labelBackgroundColor: "#1f6feb" },
@@ -61,6 +73,10 @@ export const PriceChart = forwardRef<PriceChartHandle, Props>(function PriceChar
     ro.observe(el);
     return () => { ro.disconnect(); chart.remove(); chartRef.current = null; seriesRef.current = null; };
   }, [isLine]);
+
+  useEffect(() => {
+    chartRef.current?.applyOptions(chartOptionsForTheme(theme));
+  }, [theme]);
 
   const toPoint = (b: Bar) =>
     isLine

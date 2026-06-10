@@ -322,11 +322,11 @@ export function ReplayView({ ds }: { ds: Dataset }) {
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <span className="muted">chart</span>
             {(["price", "load", "generation"] as ChartMode[]).map((m) => (
-              <button key={m} onClick={() => setChartMode(m)} style={{ background: chartMode === m ? "#8957e5" : "#21262d", padding: "4px 10px" }}>{m}</button>
+              <button key={m} onClick={() => setChartMode(m)} style={{ background: chartMode === m ? "#8957e5" : "var(--app-control-bg)", color: chartMode === m ? "#fff" : "var(--app-control-text)", padding: "4px 10px" }}>{m}</button>
             ))}
             <span className="muted" style={{ marginLeft: 8 }}>resolution</span>
             {(["day", "hour", "hh"] as Resolution[]).map((r) => (
-              <button key={r} onClick={() => setResolution(r)} style={{ background: resolution === r ? "#1f6feb" : "#21262d", padding: "4px 10px" }}>{r}</button>
+              <button key={r} onClick={() => setResolution(r)} style={{ background: resolution === r ? "var(--app-accent-blue)" : "var(--app-control-bg)", color: resolution === r ? "#fff" : "var(--app-control-text)", padding: "4px 10px" }}>{r}</button>
             ))}
           </div>
         </div>
@@ -334,7 +334,7 @@ export function ReplayView({ ds }: { ds: Dataset }) {
         <div style={{ margin: "10px 0", position: "relative" }}>
           <PriceChart ref={chartRef} resolution={resolution} onHoverTime={onHoverTime} onClickTime={onClickTime} />
           {mode === "selecting" && (
-            <div style={{ position: "absolute", top: 8, left: 8, background: "#1f6feb", padding: "4px 10px", borderRadius: 6, fontSize: 12 }}>
+            <div style={{ position: "absolute", top: 8, left: 8, background: "var(--app-accent-blue)", color: "#fff", padding: "4px 10px", borderRadius: 6, fontSize: 12 }}>
               click a bar to set contract start {hoverDate ? `· ${hoverDate}` : ""}
             </div>
           )}
@@ -354,7 +354,7 @@ export function ReplayView({ ds }: { ds: Dataset }) {
             <input type="range" min={1} max={36} step={1} value={months} onChange={(e) => setMonths(+e.target.value)} disabled={mode === "running"} />
           </Field>
           {mode !== "running" && (
-            <button onClick={startSim} disabled={startBarIdx == null} style={{ background: "#238636" }}>③ Start simulation ▶</button>
+            <button onClick={startSim} disabled={startBarIdx == null} style={{ background: "#238636", color: "#fff" }}>③ Start simulation ▶</button>
           )}
           {mode === "running" && <button onClick={() => { stopTimer(); setMode("paused"); }}>⏸ Pause</button>}
           {mode === "paused" && <button onClick={() => { setMode("running"); startTimer(); }}>▶ Resume</button>}
@@ -437,6 +437,6 @@ function Slider({ label, v, min, max, step, fmt, on, dis }: { label: string; v: 
   return <div className="ctrl"><label>{label}: <span className="val">{fmt(v)}</span></label><input type="range" min={min} max={max} step={step} value={v} disabled={dis} onChange={(e) => on(+e.target.value)} /></div>;
 }
 function Toggle({ label, on, set, dis }: { label: string; on: boolean; set: (b: boolean) => void; dis?: boolean }) {
-  return <div className="ctrl"><label>{label}</label><button disabled={dis} onClick={() => set(!on)} style={{ background: on ? "#238636" : "#21262d", width: "100%" }}>{on ? "ON" : "off"}</button></div>;
+  return <div className="ctrl"><label>{label}</label><button disabled={dis} onClick={() => set(!on)} style={{ background: on ? "#238636" : "var(--app-control-bg)", color: on ? "#fff" : "var(--app-control-text)", width: "100%" }}>{on ? "ON" : "off"}</button></div>;
 }
 function Kpi({ n, l }: { n: string; l: string }) { return <div className="kpi"><div className="n">{n}</div><div className="l">{l}</div></div>; }

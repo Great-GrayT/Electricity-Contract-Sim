@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Sun, Moon } from 'lucide-react';
 import type { View } from './home-deck.data';
+import { useTheme } from '../lib/theme';
 
 interface NavBarProps {
   view: View;
@@ -20,6 +21,7 @@ export function NavBar({ view, onNav, scrolled }: NavBarProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     if (!open) return;
@@ -91,7 +93,18 @@ export function NavBar({ view, onNav, scrolled }: NavBarProps) {
         </ul>
 
         <button
+          type="button"
+          className="navbar-theme-toggle"
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-pressed={theme === 'dark'}
+          onClick={toggleTheme}
+        >
+          {theme === 'dark' ? <Sun size={16} color="var(--ice)" /> : <Moon size={16} color="var(--ice)" />}
+        </button>
+
+        <button
           ref={hamburgerRef}
+          type="button"
           className="navbar-hamburger"
           aria-label={open ? 'Close menu' : 'Open menu'}
           aria-expanded={open}
@@ -126,6 +139,16 @@ export function NavBar({ view, onNav, scrolled }: NavBarProps) {
             {label}
           </a>
         ))}
+        <div className="navbar-mobile-divider" />
+        <button
+          type="button"
+          className="navbar-mobile-theme-toggle"
+          aria-pressed={theme === 'dark'}
+          onClick={toggleTheme}
+        >
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+        </button>
       </div>
     </>
   );

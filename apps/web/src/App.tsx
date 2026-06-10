@@ -13,11 +13,12 @@ import { ReplayView } from "./replay/ReplayView";
 import { NavBar } from "./home/NavBar";
 import { Deck } from "./home/Deck";
 import type { View } from "./home/home-deck.data";
-
-const AXIS = { stroke: "#8b949e", fontSize: 11 };
-const GRID = "#21262d";
+import { useChartColors, type ChartColors } from "./lib/theme";
 
 export function App() {
+  const chartColors = useChartColors();
+  const AXIS = { stroke: chartColors.axisColor, fontSize: 11 };
+  const tooltipStyle = { background: chartColors.tooltipBg, border: `1px solid ${chartColors.tooltipBorder}` };
   const [view, setView] = useState<View>("home");
   const [scrolled, setScrolled] = useState(false);
   const [ds, setDs] = useState<Dataset | null>(null);
@@ -109,8 +110,8 @@ export function App() {
             </p>
 
             <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-              <button onClick={() => setView("dashboard")} style={{ background: view === "dashboard" ? "#1f6feb" : "#21262d" }}>Data</button>
-              <button onClick={() => setView("replay")} style={{ background: view === "replay" ? "#1f6feb" : "#21262d" }}>Replay</button>
+              <button onClick={() => setView("dashboard")} style={{ background: view === "dashboard" ? "var(--app-accent-blue)" : "var(--app-control-bg)", color: view === "dashboard" ? "#fff" : "var(--app-control-text)" }}>Data</button>
+              <button onClick={() => setView("replay")} style={{ background: view === "replay" ? "var(--app-accent-blue)" : "var(--app-control-bg)", color: view === "replay" ? "#fff" : "var(--app-control-text)" }}>Replay</button>
             </div>
 
             {view === "replay" && <ReplayView ds={ds} />}
@@ -129,10 +130,10 @@ export function App() {
                   <h2>Day-ahead price by year <span className="tag real">real</span></h2>
                   <ResponsiveContainer width="100%" height={240}>
                     <BarChart data={yearly}>
-                      <CartesianGrid stroke={GRID} />
+                      <CartesianGrid stroke={chartColors.gridColor} />
                       <XAxis dataKey="year" {...AXIS} />
                       <YAxis {...AXIS} />
-                      <Tooltip contentStyle={{ background: "#161b22", border: "1px solid #30363d" }} />
+                      <Tooltip contentStyle={tooltipStyle} />
                       <Bar dataKey="price" name="£/MWh" fill="#58a6ff" />
                     </BarChart>
                   </ResponsiveContainer>
@@ -144,10 +145,10 @@ export function App() {
                   <h2>Capture price vs baseload <span className="tag real">real</span></h2>
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={capture?.bars ?? []}>
-                      <CartesianGrid stroke={GRID} />
+                      <CartesianGrid stroke={chartColors.gridColor} />
                       <XAxis dataKey="name" {...AXIS} />
                       <YAxis {...AXIS} />
-                      <Tooltip contentStyle={{ background: "#161b22", border: "1px solid #30363d" }} />
+                      <Tooltip contentStyle={tooltipStyle} />
                       <Bar dataKey="price" name="£/MWh" fill="#7ee787" />
                     </BarChart>
                   </ResponsiveContainer>
@@ -225,10 +226,10 @@ export function App() {
                       <h2>BESS value of duration <span className="tag real">real</span></h2>
                       <ResponsiveContainer width="100%" height={240}>
                         <BarChart data={analysis.battery}>
-                          <CartesianGrid stroke={GRID} />
+                          <CartesianGrid stroke={chartColors.gridColor} />
                           <XAxis dataKey="duration" {...AXIS} />
-                          <YAxis {...AXIS} label={{ value: "£k/MW/yr", angle: -90, fill: "#8b949e", fontSize: 11 }} />
-                          <Tooltip contentStyle={{ background: "#161b22", border: "1px solid #30363d" }} />
+                          <YAxis {...AXIS} label={{ value: "£k/MW/yr", angle: -90, fill: chartColors.axisColor, fontSize: 11 }} />
+                          <Tooltip contentStyle={tooltipStyle} />
                           <Bar dataKey="perMwYear" name="£k/MW/yr arbitrage" fill="#2ea043" />
                         </BarChart>
                       </ResponsiveContainer>
@@ -291,16 +292,25 @@ function useLegendToggle() {
   return { hide, lp };
 }
 
+function chartScales(c: ChartColors) {
+  return {
+    AXIS: { stroke: c.axisColor, fontSize: 11 },
+    tooltipStyle: { background: c.tooltipBg, border: `1px solid ${c.tooltipBorder}` },
+  };
+}
+
 function DayProfileChart({ data }: { data: ReturnType<typeof dayProfile> }) {
   const { hide, lp } = useLegendToggle();
+  const c = useChartColors();
+  const { AXIS, tooltipStyle } = chartScales(c);
   return (
     <ResponsiveContainer width="100%" height={240}>
       <ComposedChart data={data}>
-        <CartesianGrid stroke={GRID} />
+        <CartesianGrid stroke={c.gridColor} />
         <XAxis dataKey="hour" {...AXIS} />
-        <YAxis yAxisId="l" {...AXIS} label={{ value: "£/MWh", angle: -90, fill: "#8b949e", fontSize: 11 }} />
-        <YAxis yAxisId="r" orientation="right" {...AXIS} label={{ value: "GW", angle: 90, fill: "#8b949e", fontSize: 11 }} />
-        <Tooltip contentStyle={{ background: "#161b22", border: "1px solid #30363d" }} />
+        <YAxis yAxisId="l" {...AXIS} label={{ value: "£/MWh", angle: -90, fill: c.axisColor, fontSize: 11 }} />
+        <YAxis yAxisId="r" orientation="right" {...AXIS} label={{ value: "GW", angle: 90, fill: c.axisColor, fontSize: 11 }} />
+        <Tooltip contentStyle={tooltipStyle} />
         <Legend {...lp} />
         <Area yAxisId="r" dataKey="renewGW" name="renewables" fill="#1f6f3f" stroke="#2ea043" hide={hide("renewGW")} />
         <Line yAxisId="l" dataKey="price" name="day-ahead £/MWh" stroke="#58a6ff" dot={false} strokeWidth={2} hide={hide("price")} />
@@ -311,16 +321,18 @@ function DayProfileChart({ data }: { data: ReturnType<typeof dayProfile> }) {
 
 function ForwardFanChart({ data }: { data: ReturnType<typeof forwardFan> }) {
   const { hide, lp } = useLegendToggle();
+  const c = useChartColors();
+  const { AXIS, tooltipStyle } = chartScales(c);
   return (
     <ResponsiveContainer width="100%" height={240}>
       <AreaChart data={data}>
-        <CartesianGrid stroke={GRID} />
+        <CartesianGrid stroke={c.gridColor} />
         <XAxis dataKey="period" {...AXIS} />
         <YAxis {...AXIS} />
-        <Tooltip contentStyle={{ background: "#161b22", border: "1px solid #30363d" }} />
+        <Tooltip contentStyle={tooltipStyle} />
         <Legend {...lp} />
         <Area dataKey="p90" name="p90" stroke="#8957e5" fill="#8957e533" hide={hide("p90")} />
-        <Area dataKey="p10" name="p10" stroke="#8957e5" fill="#0d1117" hide={hide("p10")} />
+        <Area dataKey="p10" name="p10" stroke="#8957e5" fill={c.tooltipBg} hide={hide("p10")} />
         <Line type="monotone" dataKey="mean" name="mean" stroke="#d2a8ff" dot={false} hide={hide("mean")} />
       </AreaChart>
     </ResponsiveContainer>
@@ -329,13 +341,15 @@ function ForwardFanChart({ data }: { data: ReturnType<typeof forwardFan> }) {
 
 function WaterfallChart({ data }: { data: { label: string; std: number; downside: number }[] }) {
   const { hide, lp } = useLegendToggle();
+  const c = useChartColors();
+  const { AXIS, tooltipStyle } = chartScales(c);
   return (
     <ResponsiveContainer width="100%" height={240}>
       <BarChart data={data}>
-        <CartesianGrid stroke={GRID} />
+        <CartesianGrid stroke={c.gridColor} />
         <XAxis dataKey="label" {...AXIS} interval={0} angle={-12} textAnchor="end" height={60} />
-        <YAxis {...AXIS} label={{ value: "£m", angle: -90, fill: "#8b949e", fontSize: 11 }} />
-        <Tooltip contentStyle={{ background: "#161b22", border: "1px solid #30363d" }} />
+        <YAxis {...AXIS} label={{ value: "£m", angle: -90, fill: c.axisColor, fontSize: 11 }} />
+        <Tooltip contentStyle={tooltipStyle} />
         <Legend {...lp} />
         <Bar dataKey="std" name="margin std £m" fill="#f85149" hide={hide("std")} />
         <Bar dataKey="downside" name="downside (p50-p5) £m" fill="#d29922" hide={hide("downside")} />
@@ -347,13 +361,15 @@ function WaterfallChart({ data }: { data: { label: string; std: number; downside
 type TsRow = { date: string; price: number; loadGW: number; windGW: number; solarGW: number; nuclearGW: number; fossilGasGW: number };
 
 function PriceHistoryChart({ data }: { data: TsRow[] }) {
+  const c = useChartColors();
+  const { AXIS, tooltipStyle } = chartScales(c);
   return (
     <ResponsiveContainer width="100%" height={220}>
       <LineChart data={data}>
-        <CartesianGrid stroke={GRID} />
+        <CartesianGrid stroke={c.gridColor} />
         <XAxis dataKey="date" {...AXIS} minTickGap={60} />
-        <YAxis {...AXIS} label={{ value: "£/MWh", angle: -90, fill: "#8b949e", fontSize: 11 }} />
-        <Tooltip contentStyle={{ background: "#161b22", border: "1px solid #30363d" }} formatter={(v: number) => [`£${v}/MWh`, "day-ahead"]} />
+        <YAxis {...AXIS} label={{ value: "£/MWh", angle: -90, fill: c.axisColor, fontSize: 11 }} />
+        <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`£${v}/MWh`, "day-ahead"]} />
         <Line dataKey="price" name="day-ahead price" stroke="#58a6ff" dot={false} strokeWidth={2} />
       </LineChart>
     </ResponsiveContainer>
@@ -362,13 +378,15 @@ function PriceHistoryChart({ data }: { data: TsRow[] }) {
 
 function LoadGenChart({ data }: { data: TsRow[] }) {
   const { hide, lp } = useLegendToggle();
+  const c = useChartColors();
+  const { AXIS, tooltipStyle } = chartScales(c);
   return (
     <ResponsiveContainer width="100%" height={220}>
       <ComposedChart data={data}>
-        <CartesianGrid stroke={GRID} />
+        <CartesianGrid stroke={c.gridColor} />
         <XAxis dataKey="date" {...AXIS} minTickGap={60} />
-        <YAxis {...AXIS} label={{ value: "GW", angle: -90, fill: "#8b949e", fontSize: 11 }} />
-        <Tooltip contentStyle={{ background: "#161b22", border: "1px solid #30363d" }} formatter={(v: number, n: string) => [`${v} GW`, n]} />
+        <YAxis {...AXIS} label={{ value: "GW", angle: -90, fill: c.axisColor, fontSize: 11 }} />
+        <Tooltip contentStyle={tooltipStyle} formatter={(v: number, n: string) => [`${v} GW`, n]} />
         <Legend {...lp} />
         <Area dataKey="loadGW" name="system load" stroke="#58a6ff" fill="#58a6ff22" strokeWidth={2} hide={hide("loadGW")} />
         <Line dataKey="windGW" name="wind" stroke="#3fb950" dot={false} hide={hide("windGW")} />
@@ -380,13 +398,15 @@ function LoadGenChart({ data }: { data: TsRow[] }) {
 
 function GenStackChart({ data }: { data: TsRow[] }) {
   const { hide, lp } = useLegendToggle();
+  const c = useChartColors();
+  const { AXIS, tooltipStyle } = chartScales(c);
   return (
     <ResponsiveContainer width="100%" height={220}>
       <AreaChart data={data}>
-        <CartesianGrid stroke={GRID} />
+        <CartesianGrid stroke={c.gridColor} />
         <XAxis dataKey="date" {...AXIS} minTickGap={60} />
-        <YAxis {...AXIS} label={{ value: "GW", angle: -90, fill: "#8b949e", fontSize: 11 }} />
-        <Tooltip contentStyle={{ background: "#161b22", border: "1px solid #30363d" }} formatter={(v: number, n: string) => [`${v} GW`, n]} />
+        <YAxis {...AXIS} label={{ value: "GW", angle: -90, fill: c.axisColor, fontSize: 11 }} />
+        <Tooltip contentStyle={tooltipStyle} formatter={(v: number, n: string) => [`${v} GW`, n]} />
         <Legend {...lp} />
         <Area dataKey="windGW" name="wind" stackId="g" stroke="#3fb950" fill="#3fb95066" hide={hide("windGW")} />
         <Area dataKey="solarGW" name="solar" stackId="g" stroke="#f2cc60" fill="#f2cc6066" hide={hide("solarGW")} />
