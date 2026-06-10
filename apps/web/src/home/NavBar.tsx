@@ -15,7 +15,7 @@ const APP_LINKS: { label: string; view: View }[] = [
   { label: 'Replay', view: 'replay' },
 ];
 
-const PLACEHOLDER_LINKS = ['About', 'Approach', 'Insights', 'Contact'];
+const PLACEHOLDER_LINKS = [''];
 
 export function NavBar({ view, onNav, scrolled }: NavBarProps) {
   const [open, setOpen] = useState(false);
@@ -65,7 +65,6 @@ export function NavBar({ view, onNav, scrolled }: NavBarProps) {
 
       <nav className={`navbar${scrolled ? ' scrolled' : ''}`} aria-label="Site navigation">
         <button className="navbar-brand" onClick={() => handleNav('home')} aria-label="UrbanChain home">
-          UrbanChain
         </button>
 
         <div className="navbar-spacer" />
