@@ -36,6 +36,7 @@ import {
   type SnapRow, type PriceDist,
 } from "./panels";
 import { ContractBuilder } from "./ContractBuilder";
+import { HoverSyncProvider } from "../lib/chartInteraction";
 
 type Mode = "idle" | "selecting" | "configured" | "running" | "paused" | "done";
 const TICK_MS = 80;
@@ -408,20 +409,22 @@ export function ReplayView({ ds }: { ds: Dataset }) {
 
       {/* live sim panels */}
       {rows.length > 0 && (
-        <div className="grid">
-          <div className="span-full"><ProductionStackPanel data={rows} /></div>
-          <PriceStackPanel data={rows} />
-          <PnlBySidePanel data={rows} />
-          <SystemLoadPanel data={rows} />
-          <PriceComparePanel data={rows} />
-          <div className="span-full"><SourcingPanel data={rows} /></div>
-          <PowerPanel data={rows} />
-          <CoveragePanel data={rows} />
-          <PricePaidPanel data={rows} />
-          <InstrumentPanel data={rows} />
-          <MarketDistPanel data={hist} />
-          <PaidDistPanel data={hist} />
-        </div>
+        <HoverSyncProvider>
+          <div className="grid">
+            <div className="span-full"><ProductionStackPanel data={rows} /></div>
+            <PriceStackPanel data={rows} />
+            <PnlBySidePanel data={rows} />
+            <SystemLoadPanel data={rows} />
+            <PriceComparePanel data={rows} />
+            <div className="span-full"><SourcingPanel data={rows} /></div>
+            <PowerPanel data={rows} />
+            <CoveragePanel data={rows} />
+            <PricePaidPanel data={rows} />
+            <InstrumentPanel data={rows} />
+            <MarketDistPanel data={hist} />
+            <PaidDistPanel data={hist} />
+          </div>
+        </HoverSyncProvider>
       )}
     </div>
   );

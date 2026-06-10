@@ -53,8 +53,11 @@ export const PriceChart = forwardRef<PriceChartHandle, Props>(function PriceChar
       crosshair: {
         mode: CrosshairMode.Normal,
         vertLine: { color: "#58a6ff", width: 1, style: LineStyle.Solid, labelBackgroundColor: "#1f6feb" },
-        horzLine: { visible: false, labelVisible: false },
+        horzLine: { color: "#58a6ff", width: 1, style: LineStyle.Solid, labelBackgroundColor: "#1f6feb", visible: true, labelVisible: true },
       },
+      // analysis mode: free pan/zoom (wheel, drag, pinch) at all times
+      handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
+      handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
     });
     const series = isLine
       ? chart.addLineSeries({ color: "#58a6ff", lineWidth: 2, priceLineVisible: false })

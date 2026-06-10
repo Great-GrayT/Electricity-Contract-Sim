@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ResponsiveContainer, ComposedChart, LineChart, BarChart, AreaChart,
-  Line, Bar, Area, XAxis, YAxis, Tooltip, Legend, CartesianGrid,
+  Line, Bar, Area, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Brush,
 } from "recharts";
 import type { Dataset, PortfolioConfig } from "@gbsim/core";
 import { loadDataset } from "./lib/data";
@@ -135,6 +135,7 @@ export function App() {
                       <YAxis {...AXIS} />
                       <Tooltip contentStyle={tooltipStyle} />
                       <Bar dataKey="price" name="£/MWh" fill="#58a6ff" />
+                      <Brush dataKey="year" height={20} stroke={chartColors.axisColor} fill={chartColors.tooltipBg} travellerWidth={8} />
                     </BarChart>
                   </ResponsiveContainer>
                   <p className="muted">2022 gas-shock spike to £198/MWh, easing since.</p>
@@ -150,6 +151,7 @@ export function App() {
                       <YAxis {...AXIS} />
                       <Tooltip contentStyle={tooltipStyle} />
                       <Bar dataKey="price" name="£/MWh" fill="#7ee787" />
+                      <Brush dataKey="name" height={20} stroke={chartColors.axisColor} fill={chartColors.tooltipBg} travellerWidth={8} />
                     </BarChart>
                   </ResponsiveContainer>
                   {capture && (
@@ -231,6 +233,7 @@ export function App() {
                           <YAxis {...AXIS} label={{ value: "£k/MW/yr", angle: -90, fill: chartColors.axisColor, fontSize: 11 }} />
                           <Tooltip contentStyle={tooltipStyle} />
                           <Bar dataKey="perMwYear" name="£k/MW/yr arbitrage" fill="#2ea043" />
+                          <Brush dataKey="duration" height={20} stroke={chartColors.axisColor} fill={chartColors.tooltipBg} travellerWidth={8} />
                         </BarChart>
                       </ResponsiveContainer>
                       <p className="muted">Wholesale-arbitrage only (perfect-foresight). BM/FR/CM streams deferred.</p>
@@ -314,6 +317,7 @@ function DayProfileChart({ data }: { data: ReturnType<typeof dayProfile> }) {
         <Legend {...lp} />
         <Area yAxisId="r" dataKey="renewGW" name="renewables" fill="#1f6f3f" stroke="#2ea043" hide={hide("renewGW")} />
         <Line yAxisId="l" dataKey="price" name="day-ahead £/MWh" stroke="#58a6ff" dot={false} strokeWidth={2} hide={hide("price")} />
+        <Brush dataKey="hour" height={20} stroke={c.axisColor} fill={c.tooltipBg} travellerWidth={8} />
       </ComposedChart>
     </ResponsiveContainer>
   );
@@ -334,6 +338,7 @@ function ForwardFanChart({ data }: { data: ReturnType<typeof forwardFan> }) {
         <Area dataKey="p90" name="p90" stroke="#8957e5" fill="#8957e533" hide={hide("p90")} />
         <Area dataKey="p10" name="p10" stroke="#8957e5" fill={c.tooltipBg} hide={hide("p10")} />
         <Line type="monotone" dataKey="mean" name="mean" stroke="#d2a8ff" dot={false} hide={hide("mean")} />
+        <Brush dataKey="period" height={20} stroke={c.axisColor} fill={c.tooltipBg} travellerWidth={8} />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -353,6 +358,7 @@ function WaterfallChart({ data }: { data: { label: string; std: number; downside
         <Legend {...lp} />
         <Bar dataKey="std" name="margin std £m" fill="#f85149" hide={hide("std")} />
         <Bar dataKey="downside" name="downside (p50-p5) £m" fill="#d29922" hide={hide("downside")} />
+        <Brush dataKey="label" height={20} stroke={c.axisColor} fill={c.tooltipBg} travellerWidth={8} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -371,6 +377,7 @@ function PriceHistoryChart({ data }: { data: TsRow[] }) {
         <YAxis {...AXIS} label={{ value: "£/MWh", angle: -90, fill: c.axisColor, fontSize: 11 }} />
         <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`£${v}/MWh`, "day-ahead"]} />
         <Line dataKey="price" name="day-ahead price" stroke="#58a6ff" dot={false} strokeWidth={2} />
+        <Brush dataKey="date" height={20} stroke={c.axisColor} fill={c.tooltipBg} travellerWidth={8} />
       </LineChart>
     </ResponsiveContainer>
   );
@@ -391,6 +398,7 @@ function LoadGenChart({ data }: { data: TsRow[] }) {
         <Area dataKey="loadGW" name="system load" stroke="#58a6ff" fill="#58a6ff22" strokeWidth={2} hide={hide("loadGW")} />
         <Line dataKey="windGW" name="wind" stroke="#3fb950" dot={false} hide={hide("windGW")} />
         <Line dataKey="solarGW" name="solar" stroke="#f2cc60" dot={false} hide={hide("solarGW")} />
+        <Brush dataKey="date" height={20} stroke={c.axisColor} fill={c.tooltipBg} travellerWidth={8} />
       </ComposedChart>
     </ResponsiveContainer>
   );
@@ -412,6 +420,7 @@ function GenStackChart({ data }: { data: TsRow[] }) {
         <Area dataKey="solarGW" name="solar" stackId="g" stroke="#f2cc60" fill="#f2cc6066" hide={hide("solarGW")} />
         <Area dataKey="nuclearGW" name="nuclear" stackId="g" stroke="#a371f7" fill="#a371f766" hide={hide("nuclearGW")} />
         <Area dataKey="fossilGasGW" name="fossil gas" stackId="g" stroke="#f85149" fill="#f8514966" hide={hide("fossilGasGW")} />
+        <Brush dataKey="date" height={20} stroke={c.axisColor} fill={c.tooltipBg} travellerWidth={8} />
       </AreaChart>
     </ResponsiveContainer>
   );

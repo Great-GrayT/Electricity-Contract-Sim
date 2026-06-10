@@ -4,6 +4,7 @@ import {
   Line, Area, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, ReferenceLine,
 } from "recharts";
 import { useChartColors, type ChartColors } from "../lib/theme";
+import { useHoverSync, useChartZoom, SyncTooltip } from "../lib/chartInteraction";
 
 /** Shared id so hovering any time-series panel draws the cursor line on all of them. */
 const SYNC = "replayTime";
@@ -121,8 +122,10 @@ export function SystemLoadPanel({ data }: { data: SnapRow[] }) {
   const [showWeather, setShowWeather] = useState(false);
   const c = useChartColors();
   const { AXIS, GRID, TT, axisColor } = panelTheme(c);
+  const { isHovered, onMouseEnter, onMouseLeave } = useHoverSync("systemLoad");
+  const { data: zoomed, ref: wheelRef } = useChartZoom<SnapRow, HTMLDivElement>(data);
   return (
-    <div className="card">
+    <div className="card" ref={wheelRef} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2 style={{ margin: 0 }}>Total system load (GB) <span className="tag real">real</span></h2>
         <button onClick={() => setShowWeather((s) => !s)} style={{ background: showWeather ? "var(--app-accent-blue)" : "var(--app-control-bg)", color: showWeather ? "#fff" : "var(--app-control-text)", padding: "4px 10px", fontSize: 12 }}>
@@ -130,11 +133,11 @@ export function SystemLoadPanel({ data }: { data: SnapRow[] }) {
         </button>
       </div>
       <ResponsiveContainer width="100%" height={170}>
-        <AreaChart data={data} syncId={SYNC}>
+        <AreaChart data={zoomed} syncId={SYNC}>
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "GW", angle: -90, fill: axisColor, fontSize: 10 }} />
-          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number) => [`${v} GW`, "system load"]} />
+          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number) => [`${v} GW`, "system load"]} />} />
           <Area dataKey="systemLoadGW" name="system load" stroke="#58a6ff" fill="#58a6ff22" strokeWidth={2} />
         </AreaChart>
       </ResponsiveContainer>
@@ -147,16 +150,18 @@ function WeatherBreakdown({ data }: { data: SnapRow[] }) {
   const { hide, lp } = useLegendToggle();
   const c = useChartColors();
   const { AXIS, GRID, TT, axisColor, dividerStyle } = panelTheme(c);
+  const { isHovered, onMouseEnter, onMouseLeave } = useHoverSync("weather");
+  const { data: zoomed, ref: wheelRef } = useChartZoom<SnapRow, HTMLDivElement>(data);
   return (
-    <div style={dividerStyle}>
+    <div style={dividerStyle} ref={wheelRef} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <div className="muted" style={{ marginBottom: 4 }}>Real weather, temperature (°C, left) and wind speed (m/s, right), bar-averaged</div>
       <ResponsiveContainer width="100%" height={210}>
-        <ComposedChart data={data} syncId={SYNC}>
+        <ComposedChart data={zoomed} syncId={SYNC}>
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis yAxisId="t" {...AXIS} label={{ value: "°C", angle: -90, fill: axisColor, fontSize: 10 }} />
           <YAxis yAxisId="w" orientation="right" {...AXIS} label={{ value: "m/s", angle: 90, fill: axisColor, fontSize: 10 }} />
-          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [v == null ? "—" : `${v}${n.includes("wind") ? " m/s" : " °C"}`, n]} />
+          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [v == null ? "—" : `${v}${n.includes("wind") ? " m/s" : " °C"}`, n]} />} />
           <Legend {...lp} />
           <Line yAxisId="t" dataKey="wxTemp" name="temp 2m" stroke="#f0883e" dot={false} hide={hide("wxTemp")} />
           <Line yAxisId="t" dataKey="wxWtdTemp" name="temp (weighted)" stroke="#f2cc60" dot={false} strokeDasharray="4 3" hide={hide("wxWtdTemp")} />
@@ -173,15 +178,17 @@ export function ProductionStackPanel({ data }: { data: SnapRow[] }) {
   const { hide, lp } = useLegendToggle();
   const c = useChartColors();
   const { AXIS, GRID, TT, axisColor } = panelTheme(c);
+  const { isHovered, onMouseEnter, onMouseLeave } = useHoverSync("productionStack");
+  const { data: zoomed, ref: wheelRef } = useChartZoom<SnapRow, HTMLDivElement>(data);
   return (
-    <div className="card">
+    <div className="card" ref={wheelRef} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <h2>Total production by type, renewables → fossils <span className="tag real">real</span></h2>
       <ResponsiveContainer width="100%" height={200}>
-        <AreaChart data={data} syncId={SYNC}>
+        <AreaChart data={zoomed} syncId={SYNC}>
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "GW", angle: -90, fill: axisColor, fontSize: 10 }} />
-          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`${v} GW`, n]} />
+          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [`${v} GW`, n]} />} />
           <Legend {...lp} />
           {FUEL_SERIES.map((f) => (
             <Area key={f.key} dataKey={f.key} name={f.label} stackId="gen" stroke={f.color} fill={f.color} fillOpacity={0.85} hide={hide(f.key)} />
@@ -197,8 +204,10 @@ export function PriceComparePanel({ data }: { data: SnapRow[] }) {
   const [showBreakdown, setShowBreakdown] = useState(false);
   const c = useChartColors();
   const { AXIS, GRID, TT, axisColor } = panelTheme(c);
+  const { isHovered, onMouseEnter, onMouseLeave } = useHoverSync("priceCompare");
+  const { data: zoomed, ref: wheelRef } = useChartZoom<SnapRow, HTMLDivElement>(data);
   return (
-    <div className="card">
+    <div className="card" ref={wheelRef} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2 style={{ margin: 0 }}>Market price vs consumer paid <span className="tag real">real</span></h2>
         <button onClick={() => setShowBreakdown((s) => !s)} style={{ background: showBreakdown ? "var(--app-accent-blue)" : "var(--app-control-bg)", color: showBreakdown ? "#fff" : "var(--app-control-text)", padding: "4px 10px", fontSize: 12 }}>
@@ -206,11 +215,11 @@ export function PriceComparePanel({ data }: { data: SnapRow[] }) {
         </button>
       </div>
       <ResponsiveContainer width="100%" height={170}>
-        <LineChart data={data} syncId={SYNC}>
+        <LineChart data={zoomed} syncId={SYNC}>
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "£/MWh", angle: -90, fill: axisColor, fontSize: 10 }} />
-          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [v == null ? "—" : `£${v}/MWh`, n]} />
+          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [v == null ? "—" : `£${v}/MWh`, n]} />} />
           <Legend {...lp} wrapperStyle={{ ...lp.wrapperStyle, fontSize: 11 }} />
           <Line dataKey="marketPrice" name="market (day-ahead)" stroke="#58a6ff" dot={false} hide={hide("marketPrice")} />
           <Line dataKey="imbalancePrice" name="cash-out (imbalance)" stroke="#f85149" dot={false} strokeDasharray="2 2" hide={hide("imbalancePrice")} />
@@ -227,15 +236,17 @@ function CostBreakdown({ data }: { data: SnapRow[] }) {
   const { hide, lp } = useLegendToggle();
   const c = useChartColors();
   const { AXIS, GRID, TT, axisColor, strongColor, dividerStyle } = panelTheme(c);
+  const { isHovered, onMouseEnter, onMouseLeave } = useHoverSync("costBreakdown");
+  const { data: zoomed, ref: wheelRef } = useChartZoom<SnapRow, HTMLDivElement>(data);
   return (
-    <div style={dividerStyle}>
+    <div style={dividerStyle} ref={wheelRef} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <div className="muted" style={{ marginBottom: 4 }}>Cost-to-serve breakdown per bar (£k), costs above zero, hedge payouts below (they reduce cost); net = line</div>
       <ResponsiveContainer width="100%" height={210}>
-        <ComposedChart data={data} syncId={SYNC} stackOffset="sign">
+        <ComposedChart data={zoomed} syncId={SYNC} stackOffset="sign">
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "£k/bar", angle: -90, fill: axisColor, fontSize: 10 }} />
-          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}k`, n]} />
+          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}k`, n]} />} />
           <Legend {...lp} />
           <ReferenceLine y={0} stroke={axisColor} />
           <Bar dataKey="ppaServeK" name="PPA cost (own gen kept)" stackId="c" fill="#2ea043" hide={hide("ppaServeK")} />
@@ -256,16 +267,18 @@ export function SourcingPanel({ data }: { data: SnapRow[] }) {
   const { hide, lp } = useLegendToggle();
   const c = useChartColors();
   const { AXIS, GRID, TT, axisColor } = panelTheme(c);
+  const { isHovered, onMouseEnter, onMouseLeave } = useHoverSync("sourcing");
+  const { data: zoomed, ref: wheelRef } = useChartZoom<SnapRow, HTMLDivElement>(data);
   return (
-    <div className="card">
+    <div className="card" ref={wheelRef} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <h2>Optimised sourcing decision: gen → battery → market <span className="tag real">real</span></h2>
       <ResponsiveContainer width="100%" height={185}>
-        <ComposedChart data={data} syncId={SYNC}>
+        <ComposedChart data={zoomed} syncId={SYNC}>
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis yAxisId="l" {...AXIS} label={{ value: "MWh/bar", angle: -90, fill: axisColor, fontSize: 10 }} />
           <YAxis yAxisId="r" orientation="right" {...AXIS} label={{ value: "SoC MWh", angle: 90, fill: axisColor, fontSize: 10 }} />
-          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`${v}${n === "battery SoC" ? " MWh" : " MWh"}`, n]} />
+          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [`${v}${n === "battery SoC" ? " MWh" : " MWh"}`, n]} />} />
           <Legend {...lp} wrapperStyle={{ ...lp.wrapperStyle, fontSize: 11 }} />
           <Area yAxisId="l" dataKey="srcGenMwh" name="own generation" stackId="src" stroke="#2ea043" fill="#2ea043cc" hide={hide("srcGenMwh")} />
           <Area yAxisId="l" dataKey="srcBatteryMwh" name="battery" stackId="src" stroke="#a371f7" fill="#a371f7cc" hide={hide("srcBatteryMwh")} />
@@ -282,15 +295,17 @@ export function PriceStackPanel({ data }: { data: SnapRow[] }) {
   const { hide, lp } = useLegendToggle();
   const c = useChartColors();
   const { AXIS, GRID, TT, axisColor } = panelTheme(c);
+  const { isHovered, onMouseEnter, onMouseLeave } = useHoverSync("priceStack");
+  const { data: zoomed, ref: wheelRef } = useChartZoom<SnapRow, HTMLDivElement>(data);
   return (
-    <div className="card">
+    <div className="card" ref={wheelRef} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <h2>Price stack: generator → us → consumer <span className="tag real">real</span></h2>
       <ResponsiveContainer width="100%" height={185}>
-        <LineChart data={data} syncId={SYNC}>
+        <LineChart data={zoomed} syncId={SYNC}>
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "£/MWh", angle: -90, fill: axisColor, fontSize: 10 }} />
-          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [v == null ? "—" : `£${v}/MWh`, n]} />
+          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [v == null ? "—" : `£${v}/MWh`, n]} />} />
           <Legend {...lp} wrapperStyle={{ ...lp.wrapperStyle, fontSize: 11 }} />
           <Line dataKey="consumerPaid" name="consumer pays us (tariff)" stroke="#d29922" dot={false} strokeWidth={2} hide={hide("consumerPaid")} />
           <Line dataKey="marketPrice" name="market (day-ahead)" stroke="#58a6ff" dot={false} hide={hide("marketPrice")} />
@@ -307,8 +322,10 @@ export function PnlBySidePanel({ data }: { data: SnapRow[] }) {
   const [breakdown, setBreakdown] = useState<"none" | "margin" | "market">("none");
   const c = useChartColors();
   const { AXIS, GRID, TT, axisColor } = panelTheme(c);
+  const { isHovered, onMouseEnter, onMouseLeave } = useHoverSync("pnlBySide");
+  const { data: zoomed, ref: wheelRef } = useChartZoom<SnapRow, HTMLDivElement>(data);
   return (
-    <div className="card">
+    <div className="card" ref={wheelRef} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <h2 style={{ margin: 0 }}>Cumulative P&amp;L by side <span className="tag real">real</span></h2>
         <div style={{ display: "flex", gap: 6 }}>
@@ -321,11 +338,11 @@ export function PnlBySidePanel({ data }: { data: SnapRow[] }) {
         </div>
       </div>
       <ResponsiveContainer width="100%" height={185}>
-        <LineChart data={data} syncId={SYNC}>
+        <LineChart data={zoomed} syncId={SYNC}>
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "£m", angle: -90, fill: axisColor, fontSize: 10 }} />
-          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}m`, n]} />
+          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}m`, n]} />} />
           <Legend {...lp} wrapperStyle={{ ...lp.wrapperStyle, fontSize: 11 }} />
           <Line dataKey="cumRetailM" name="consumers → us (revenue)" stroke="#d29922" dot={false} strokeWidth={2} hide={hide("cumRetailM")} />
           <Line dataKey="cumGenCostM" name="us → generators (PPA)" stroke="#2ea043" dot={false} hide={hide("cumGenCostM")} />
@@ -344,7 +361,9 @@ function MarginBreakdown({ data }: { data: SnapRow[] }) {
   const { hide, lp } = useLegendToggle();
   const c = useChartColors();
   const { AXIS, GRID, TT, axisColor, dividerStyle } = panelTheme(c);
-  const d = data.map((r) => ({
+  const { isHovered, onMouseEnter, onMouseLeave } = useHoverSync("marginBreakdown");
+  const { data: zoomed, ref: wheelRef } = useChartZoom<SnapRow, HTMLDivElement>(data);
+  const d = zoomed.map((r) => ({
     date: r.date,
     retail: r.cumRetailM,
     genCost: -r.cumGenCostM,
@@ -353,14 +372,14 @@ function MarginBreakdown({ data }: { data: SnapRow[] }) {
     margin: r.cumMarginM,
   }));
   return (
-    <div style={dividerStyle}>
+    <div style={dividerStyle} ref={wheelRef} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <div className="muted" style={{ marginBottom: 4 }}>Margin decomposition (£m cumulative): inflows up, outflows down; net = margin line</div>
       <ResponsiveContainer width="100%" height={210}>
         <ComposedChart data={d} syncId={SYNC} stackOffset="sign">
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "£m", angle: -90, fill: axisColor, fontSize: 10 }} />
-          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}m`, n]} />
+          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}m`, n]} />} />
           <Legend {...lp} />
           <ReferenceLine y={0} stroke={axisColor} />
           <Bar dataKey="retail" name="+ consumers (revenue)" stackId="m" fill="#d29922" hide={hide("retail")} />
@@ -378,21 +397,23 @@ function MarketNetBreakdown({ data }: { data: SnapRow[] }) {
   const { hide, lp } = useLegendToggle();
   const c = useChartColors();
   const { AXIS, GRID, TT, axisColor, dividerStyle } = panelTheme(c);
-  const d = data.map((r) => ({
+  const { isHovered, onMouseEnter, onMouseLeave } = useHoverSync("marketNetBreakdown");
+  const { data: zoomed, ref: wheelRef } = useChartZoom<SnapRow, HTMLDivElement>(data);
+  const d = zoomed.map((r) => ({
     date: r.date,
     buys: r.cumMarketBuyM,
     exports: -r.cumExportIncomeM,
     net: r.cumMarketNetM,
   }));
   return (
-    <div style={dividerStyle}>
+    <div style={dividerStyle} ref={wheelRef} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <div className="muted" style={{ marginBottom: 4 }}>Market-net decomposition (£m cumulative): money out to market up, export income down; net = line</div>
       <ResponsiveContainer width="100%" height={210}>
         <ComposedChart data={d} syncId={SYNC} stackOffset="sign">
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "£m", angle: -90, fill: axisColor, fontSize: 10 }} />
-          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}m`, n]} />
+          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}m`, n]} />} />
           <Legend {...lp} />
           <ReferenceLine y={0} stroke={axisColor} />
           <Bar dataKey="buys" name="+ buys (shortfall + charge)" stackId="k" fill="#f85149" hide={hide("buys")} />
@@ -408,15 +429,17 @@ export function PowerPanel({ data }: { data: SnapRow[] }) {
   const { hide, lp } = useLegendToggle();
   const c = useChartColors();
   const { AXIS, GRID, TT, axisColor } = panelTheme(c);
+  const { isHovered, onMouseEnter, onMouseLeave } = useHoverSync("power");
+  const { data: zoomed, ref: wheelRef } = useChartZoom<SnapRow, HTMLDivElement>(data);
   return (
-    <div className="card">
+    <div className="card" ref={wheelRef} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <h2>Power received vs consumer load <span className="tag real">real</span></h2>
       <ResponsiveContainer width="100%" height={170}>
-        <ComposedChart data={data} syncId={SYNC}>
+        <ComposedChart data={zoomed} syncId={SYNC}>
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "MWh/bar", angle: -90, fill: axisColor, fontSize: 10 }} />
-          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`${v} MWh`, n]} />
+          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [`${v} MWh`, n]} />} />
           <Legend {...lp} wrapperStyle={{ ...lp.wrapperStyle, fontSize: 11 }} />
           <Area dataKey="consumerMwh" name="consumer load" stroke="#d29922" fill="#d2992233" hide={hide("consumerMwh")} />
           <Area dataKey="genMwh" name="contracted gen" stroke="#2ea043" fill="#2ea04344" hide={hide("genMwh")} />
@@ -431,16 +454,18 @@ export function PricePaidPanel({ data }: { data: SnapRow[] }) {
   const { hide, lp } = useLegendToggle();
   const c = useChartColors();
   const { AXIS, GRID, TT, axisColor } = panelTheme(c);
+  const { isHovered, onMouseEnter, onMouseLeave } = useHoverSync("pricePaid");
+  const { data: zoomed, ref: wheelRef } = useChartZoom<SnapRow, HTMLDivElement>(data);
   return (
-    <div className="card">
+    <div className="card" ref={wheelRef} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <h2>Cumulative cost: with contract vs market-only <span className="tag real">real</span></h2>
       <ResponsiveContainer width="100%" height={170}>
-        <ComposedChart data={data} syncId={SYNC}>
+        <ComposedChart data={zoomed} syncId={SYNC}>
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis yAxisId="l" {...AXIS} label={{ value: "£m paid", angle: -90, fill: axisColor, fontSize: 10 }} />
           <YAxis yAxisId="r" orientation="right" {...AXIS} label={{ value: "£m margin", angle: 90, fill: axisColor, fontSize: 10 }} />
-          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}m`, n]} />
+          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}m`, n]} />} />
           <Legend {...lp} wrapperStyle={{ ...lp.wrapperStyle, fontSize: 11 }} />
           <Line yAxisId="l" dataKey="cumPaidWithoutM" name="paid without contract (spot)" stroke="#f85149" dot={false} strokeDasharray="4 3" hide={hide("cumPaidWithoutM")} />
           <Line yAxisId="l" dataKey="cumPaidWithM" name="paid with contract" stroke="#58a6ff" dot={false} strokeWidth={2} hide={hide("cumPaidWithM")} />
@@ -456,15 +481,17 @@ export function CoveragePanel({ data }: { data: SnapRow[] }) {
   const { hide, lp } = useLegendToggle();
   const c = useChartColors();
   const { AXIS, GRID, TT, axisColor } = panelTheme(c);
+  const { isHovered, onMouseEnter, onMouseLeave } = useHoverSync("coverage");
+  const { data: zoomed, ref: wheelRef } = useChartZoom<SnapRow, HTMLDivElement>(data);
   return (
-    <div className="card">
+    <div className="card" ref={wheelRef} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <h2>Coverage (own generation share) <span className="tag real">real</span></h2>
       <ResponsiveContainer width="100%" height={170}>
-        <LineChart data={data} syncId={SYNC}>
+        <LineChart data={zoomed} syncId={SYNC}>
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} domain={[0, 100]} label={{ value: "%", angle: -90, fill: axisColor, fontSize: 10 }} />
-          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`${v}%`, n]} />
+          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [`${v}%`, n]} />} />
           <Legend {...lp} wrapperStyle={{ ...lp.wrapperStyle, fontSize: 11 }} />
           <Line dataKey="barCoveragePct" name="coverage this bar" stroke="#2ea043" dot={false} strokeWidth={2} hide={hide("barCoveragePct")} />
           <Line dataKey="coveragePct" name="coverage cumulative" stroke="#7ee787" dot={false} strokeDasharray="4 3" hide={hide("coveragePct")} />
@@ -481,15 +508,17 @@ export function InstrumentPanel({ data }: { data: SnapRow[] }) {
   const { hide, lp } = useLegendToggle();
   const c = useChartColors();
   const { AXIS, GRID, TT, axisColor } = panelTheme(c);
+  const { isHovered, onMouseEnter, onMouseLeave } = useHoverSync("instrument");
+  const { data: zoomed, ref: wheelRef } = useChartZoom<SnapRow, HTMLDivElement>(data);
   return (
-    <div className="card">
+    <div className="card" ref={wheelRef} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <h2>Instrument economics per bar <span className="tag model">model</span></h2>
       <ResponsiveContainer width="100%" height={170}>
-        <ComposedChart data={data} syncId={SYNC}>
+        <ComposedChart data={zoomed} syncId={SYNC}>
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "£k/bar", angle: -90, fill: axisColor, fontSize: 10 }} />
-          <Tooltip cursor={CURSOR} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}k`, n]} />
+          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [`£${v}k`, n]} />} />
           <Legend {...lp} wrapperStyle={{ ...lp.wrapperStyle, fontSize: 11 }} />
           <Bar dataKey="batteryRevK" name="BESS £k" fill="#2ea043" hide={hide("batteryRevK")} />
           <Line dataKey="hedgePayoffK" name="collar+cap £k" stroke="#d2a8ff" dot={false} hide={hide("hedgePayoffK")} />
