@@ -1,9 +1,10 @@
 {
   "source": "GB-realtime-data.xlsx + data/*.parquet + data/gb_renewable_datasets.xlsx + data/NBP spot_*.xlsx",
   "sheet": "GB",
-  "rows": 112363,
+  "rows": 200208,
   "columns": [
     "datetime",
+    "epoch_ms",
     "Hour",
     "da_price_gbp_mwh",
     "load_mw",
@@ -21,7 +22,6 @@
     "temperature_2m",
     "wind_speed_10m",
     "wind_speed_100m",
-    "epoch_ms",
     "settlementPeriod",
     "systemSellPrice",
     "systemBuyPrice",
@@ -39,6 +39,7 @@
     "bm_bid_volume_mwh",
     "bm_net_volume_mwh",
     "bm_acceptance_count",
+    "workbook_price_gbp_mwh",
     "wtd_wind_speed_100m",
     "wtd_temperature_2m",
     "hornsea_one_wind_speed_100m",
@@ -73,6 +74,7 @@
     "bm_bid_volume_mwh",
     "bm_net_volume_mwh",
     "bm_acceptance_count",
+    "workbook_price_gbp_mwh",
     "wtd_wind_speed_100m",
     "wtd_temperature_2m",
     "hornsea_one_wind_speed_100m",
@@ -89,65 +91,331 @@
     "dr_clearing_price",
     "nbp_gbp_therm"
   ],
-  "dtype": "float64",
+  "dtype": "mixed",
+  "dtypes": {
+    "datetime": "f64",
+    "Hour": "f32",
+    "da_price_gbp_mwh": "f32",
+    "load_mw": "f32",
+    "Biomass": "f32",
+    "Fossil Gas": "f32",
+    "Fossil Hard coal": "f32",
+    "Fossil Oil": "f32",
+    "Hydro Pumped Storage": "f32",
+    "Hydro Run-of-river and poundage": "f32",
+    "Nuclear": "f32",
+    "Other": "f32",
+    "Solar": "f32",
+    "Wind Offshore": "f32",
+    "Wind Onshore": "f32",
+    "temperature_2m": "f32",
+    "wind_speed_10m": "f32",
+    "wind_speed_100m": "f32",
+    "epoch_ms": "f64",
+    "settlementPeriod": "f32",
+    "systemSellPrice": "f32",
+    "systemBuyPrice": "f32",
+    "netImbalanceVolume": "f32",
+    "reserveScarcityPrice": "f32",
+    "replacementPrice": "f32",
+    "totalAcceptedOfferVolume": "f32",
+    "totalAcceptedBidVolume": "f32",
+    "elexon_solar_mw": "f32",
+    "elexon_wind_offshore_mw": "f32",
+    "elexon_wind_onshore_mw": "f32",
+    "initialDemandOutturn": "f32",
+    "initialTransmissionSystemDemandOutturn": "f32",
+    "bm_offer_volume_mwh": "f32",
+    "bm_bid_volume_mwh": "f32",
+    "bm_net_volume_mwh": "f32",
+    "bm_acceptance_count": "f32",
+    "workbook_price_gbp_mwh": "f32",
+    "wtd_wind_speed_100m": "f32",
+    "wtd_temperature_2m": "f32",
+    "hornsea_one_wind_speed_100m": "f32",
+    "dogger_bank_a_wind_speed_100m": "f32",
+    "sheringham_shoal_wind_speed_100m": "f32",
+    "walney_ext_wind_speed_100m": "f32",
+    "whitelee_wind_speed_100m": "f32",
+    "london_temperature_2m": "f32",
+    "manchester_temperature_2m": "f32",
+    "edinburgh_temperature_2m": "f32",
+    "birmingham_temperature_2m": "f32",
+    "dc_clearing_price": "f32",
+    "dm_clearing_price": "f32",
+    "dr_clearing_price": "f32",
+    "nbp_gbp_therm": "f32"
+  },
   "layout": "column-major",
-  "start": "2020-01-01T00:00:00",
-  "end": "2026-06-02T23:29:59.999999",
+  "start": "2015-01-01T00:00:00",
+  "end": "2026-06-02T23:30:00",
   "nanCounts": {
     "datetime": 0,
-    "Hour": 112363,
-    "da_price_gbp_mwh": 1573,
-    "load_mw": 219,
-    "Biomass": 18157,
-    "Fossil Gas": 18157,
-    "Fossil Hard coal": 18157,
-    "Fossil Oil": 18157,
-    "Hydro Pumped Storage": 18157,
-    "Hydro Run-of-river and poundage": 18157,
-    "Nuclear": 18157,
-    "Other": 18157,
-    "Solar": 18157,
-    "Wind Offshore": 18157,
-    "Wind Onshore": 18157,
-    "temperature_2m": 56083,
-    "wind_speed_10m": 56083,
-    "wind_speed_100m": 56083,
     "epoch_ms": 0,
-    "settlementPeriod": 13,
-    "systemSellPrice": 13,
-    "systemBuyPrice": 13,
-    "netImbalanceVolume": 13,
-    "reserveScarcityPrice": 40546,
-    "replacementPrice": 95198,
-    "totalAcceptedOfferVolume": 13,
-    "totalAcceptedBidVolume": 13,
-    "elexon_solar_mw": 19424,
-    "elexon_wind_offshore_mw": 19424,
-    "elexon_wind_onshore_mw": 19424,
-    "initialDemandOutturn": 219,
-    "initialTransmissionSystemDemandOutturn": 219,
-    "bm_offer_volume_mwh": 297,
-    "bm_bid_volume_mwh": 297,
-    "bm_net_volume_mwh": 297,
-    "bm_acceptance_count": 297,
-    "wtd_wind_speed_100m": 2,
-    "wtd_temperature_2m": 2,
-    "hornsea_one_wind_speed_100m": 2,
-    "dogger_bank_a_wind_speed_100m": 2,
-    "sheringham_shoal_wind_speed_100m": 2,
-    "walney_ext_wind_speed_100m": 2,
-    "whitelee_wind_speed_100m": 2,
-    "london_temperature_2m": 2,
-    "manchester_temperature_2m": 2,
-    "edinburgh_temperature_2m": 2,
-    "birmingham_temperature_2m": 2,
-    "dc_clearing_price": 92922,
-    "dm_clearing_price": 102234,
-    "dr_clearing_price": 102234,
+    "Hour": 200208,
+    "da_price_gbp_mwh": 89418,
+    "load_mw": 88064,
+    "Biomass": 106002,
+    "Fossil Gas": 106002,
+    "Fossil Hard coal": 106002,
+    "Fossil Oil": 106002,
+    "Hydro Pumped Storage": 106002,
+    "Hydro Run-of-river and poundage": 106002,
+    "Nuclear": 106002,
+    "Other": 106002,
+    "Solar": 106002,
+    "Wind Offshore": 106002,
+    "Wind Onshore": 106002,
+    "temperature_2m": 143928,
+    "wind_speed_10m": 143928,
+    "wind_speed_100m": 143928,
+    "settlementPeriod": 14901,
+    "systemSellPrice": 14901,
+    "systemBuyPrice": 14901,
+    "netImbalanceVolume": 14901,
+    "reserveScarcityPrice": 98735,
+    "replacementPrice": 172296,
+    "totalAcceptedOfferVolume": 14901,
+    "totalAcceptedBidVolume": 14901,
+    "elexon_solar_mw": 50299,
+    "elexon_wind_offshore_mw": 50299,
+    "elexon_wind_onshore_mw": 50299,
+    "initialDemandOutturn": 21391,
+    "initialTransmissionSystemDemandOutturn": 21419,
+    "bm_offer_volume_mwh": 30859,
+    "bm_bid_volume_mwh": 30859,
+    "bm_net_volume_mwh": 30859,
+    "bm_acceptance_count": 30859,
+    "workbook_price_gbp_mwh": 147680,
+    "wtd_wind_speed_100m": 7441,
+    "wtd_temperature_2m": 7441,
+    "hornsea_one_wind_speed_100m": 7441,
+    "dogger_bank_a_wind_speed_100m": 7441,
+    "sheringham_shoal_wind_speed_100m": 7441,
+    "walney_ext_wind_speed_100m": 7441,
+    "whitelee_wind_speed_100m": 7441,
+    "london_temperature_2m": 7441,
+    "manchester_temperature_2m": 7441,
+    "edinburgh_temperature_2m": 7441,
+    "birmingham_temperature_2m": 7441,
+    "dc_clearing_price": 180767,
+    "dm_clearing_price": 190079,
+    "dr_clearing_price": 190079,
     "nbp_gbp_therm": 0
+  },
+  "coverage": {
+    "datetime": {
+      "first": "2015-01-01T00:00:00",
+      "last": "2026-06-02T23:30:00"
+    },
+    "epoch_ms": {
+      "first": "2015-01-01T00:00:00",
+      "last": "2026-06-02T23:30:00"
+    },
+    "Hour": {
+      "first": null,
+      "last": null
+    },
+    "da_price_gbp_mwh": {
+      "first": "2020-01-01T00:00:00",
+      "last": "2026-06-02T23:30:00"
+    },
+    "load_mw": {
+      "first": "2020-01-01T00:00:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "Biomass": {
+      "first": "2020-01-01T00:00:00",
+      "last": "2026-06-02T00:00:00"
+    },
+    "Fossil Gas": {
+      "first": "2020-01-01T00:00:00",
+      "last": "2026-06-02T00:00:00"
+    },
+    "Fossil Hard coal": {
+      "first": "2020-01-01T00:00:00",
+      "last": "2026-06-02T00:00:00"
+    },
+    "Fossil Oil": {
+      "first": "2020-01-01T00:00:00",
+      "last": "2026-06-02T00:00:00"
+    },
+    "Hydro Pumped Storage": {
+      "first": "2020-01-01T00:00:00",
+      "last": "2026-06-02T00:00:00"
+    },
+    "Hydro Run-of-river and poundage": {
+      "first": "2020-01-01T00:00:00",
+      "last": "2026-06-02T00:00:00"
+    },
+    "Nuclear": {
+      "first": "2020-01-01T00:00:00",
+      "last": "2026-06-02T00:00:00"
+    },
+    "Other": {
+      "first": "2020-01-01T00:00:00",
+      "last": "2026-06-02T00:00:00"
+    },
+    "Solar": {
+      "first": "2020-01-01T00:00:00",
+      "last": "2026-06-02T00:00:00"
+    },
+    "Wind Offshore": {
+      "first": "2020-01-01T00:00:00",
+      "last": "2026-06-02T00:00:00"
+    },
+    "Wind Onshore": {
+      "first": "2020-01-01T00:00:00",
+      "last": "2026-06-02T00:00:00"
+    },
+    "temperature_2m": {
+      "first": "2020-01-01T00:00:00",
+      "last": "2026-06-02T23:00:00"
+    },
+    "wind_speed_10m": {
+      "first": "2020-01-01T00:00:00",
+      "last": "2026-06-02T23:00:00"
+    },
+    "wind_speed_100m": {
+      "first": "2020-01-01T00:00:00",
+      "last": "2026-06-02T23:00:00"
+    },
+    "settlementPeriod": {
+      "first": "2015-11-06T23:30:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "systemSellPrice": {
+      "first": "2015-11-06T23:30:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "systemBuyPrice": {
+      "first": "2015-11-06T23:30:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "netImbalanceVolume": {
+      "first": "2015-11-06T23:30:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "reserveScarcityPrice": {
+      "first": "2015-11-07T07:00:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "replacementPrice": {
+      "first": "2015-11-07T02:30:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "totalAcceptedOfferVolume": {
+      "first": "2015-11-06T23:30:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "totalAcceptedBidVolume": {
+      "first": "2015-11-06T23:30:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "elexon_solar_mw": {
+      "first": "2016-02-29T23:00:00",
+      "last": "2026-06-02T00:00:00"
+    },
+    "elexon_wind_offshore_mw": {
+      "first": "2016-02-29T23:00:00",
+      "last": "2026-06-02T00:00:00"
+    },
+    "elexon_wind_onshore_mw": {
+      "first": "2016-02-29T23:00:00",
+      "last": "2026-06-02T00:00:00"
+    },
+    "initialDemandOutturn": {
+      "first": "2016-02-29T23:30:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "initialTransmissionSystemDemandOutturn": {
+      "first": "2016-02-29T23:30:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "bm_offer_volume_mwh": {
+      "first": "2016-09-12T13:00:00",
+      "last": "2026-06-02T23:30:00"
+    },
+    "bm_bid_volume_mwh": {
+      "first": "2016-09-12T13:00:00",
+      "last": "2026-06-02T23:30:00"
+    },
+    "bm_net_volume_mwh": {
+      "first": "2016-09-12T13:00:00",
+      "last": "2026-06-02T23:30:00"
+    },
+    "bm_acceptance_count": {
+      "first": "2016-09-12T13:00:00",
+      "last": "2026-06-02T23:30:00"
+    },
+    "workbook_price_gbp_mwh": {
+      "first": "2015-01-01T00:00:00",
+      "last": "2020-12-31T22:00:00"
+    },
+    "wtd_wind_speed_100m": {
+      "first": "2015-01-01T00:00:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "wtd_temperature_2m": {
+      "first": "2015-01-01T00:00:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "hornsea_one_wind_speed_100m": {
+      "first": "2015-01-01T00:00:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "dogger_bank_a_wind_speed_100m": {
+      "first": "2015-01-01T00:00:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "sheringham_shoal_wind_speed_100m": {
+      "first": "2015-01-01T00:00:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "walney_ext_wind_speed_100m": {
+      "first": "2015-01-01T00:00:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "whitelee_wind_speed_100m": {
+      "first": "2015-01-01T00:00:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "london_temperature_2m": {
+      "first": "2015-01-01T00:00:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "manchester_temperature_2m": {
+      "first": "2015-01-01T00:00:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "edinburgh_temperature_2m": {
+      "first": "2015-01-01T00:00:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "birmingham_temperature_2m": {
+      "first": "2015-01-01T00:00:00",
+      "last": "2026-06-02T22:30:00"
+    },
+    "dc_clearing_price": {
+      "first": "2021-09-16T00:00:00",
+      "last": "2022-10-26T00:00:00"
+    },
+    "dm_clearing_price": {
+      "first": "2022-03-26T00:00:00",
+      "last": "2022-10-23T00:00:00"
+    },
+    "dr_clearing_price": {
+      "first": "2022-03-26T00:00:00",
+      "last": "2022-10-23T00:00:00"
+    },
+    "nbp_gbp_therm": {
+      "first": "2015-01-01T00:00:00",
+      "last": "2026-06-02T23:30:00"
+    }
   },
   "units": {
     "datetime": "Excel serial",
+    "epoch_ms": "ms",
     "Hour": "h",
     "da_price_gbp_mwh": "GBP/MWh",
     "load_mw": "MW",
@@ -165,7 +433,6 @@
     "temperature_2m": "degC",
     "wind_speed_10m": "m/s",
     "wind_speed_100m": "m/s",
-    "epoch_ms": "ms",
     "settlementPeriod": "SP",
     "systemSellPrice": "GBP/MWh",
     "systemBuyPrice": "GBP/MWh",
@@ -183,6 +450,7 @@
     "bm_bid_volume_mwh": "MWh",
     "bm_net_volume_mwh": "MWh",
     "bm_acceptance_count": "count",
+    "workbook_price_gbp_mwh": "GBP/MWh",
     "wtd_wind_speed_100m": "m/s",
     "wtd_temperature_2m": "degC",
     "hornsea_one_wind_speed_100m": "m/s",
@@ -201,6 +469,7 @@
   },
   "descriptions": {
     "datetime": "Half-hour period start (Excel serial day)",
+    "epoch_ms": "Half-hour period start (Unix epoch milliseconds, UTC)",
     "Hour": "Hour column from the source sheet",
     "da_price_gbp_mwh": "Day-ahead (N2EX) auction price",
     "load_mw": "GB system load (ENTSO-E)",
@@ -218,7 +487,6 @@
     "temperature_2m": "Air temperature at 2 m",
     "wind_speed_10m": "Wind speed at 10 m",
     "wind_speed_100m": "Wind speed at 100 m",
-    "epoch_ms": "Half-hour period start (Unix epoch milliseconds, UTC)",
     "settlementPeriod": "Elexon settlement period within the settlement day",
     "systemSellPrice": "Imbalance (cash-out) sell price",
     "systemBuyPrice": "Imbalance (cash-out) buy price",
@@ -236,6 +504,7 @@
     "bm_bid_volume_mwh": "Accepted BM bid volume (BOALF)",
     "bm_net_volume_mwh": "Net accepted BM volume (offer + bid)",
     "bm_acceptance_count": "Number of BM acceptances in the period",
+    "workbook_price_gbp_mwh": "Power price from the workbook's Exposure Simulator sheet: hourly, 2015-2020 only. A different series from the day-ahead price (r=0.79, mean |diff| GBP 6.7/MWh on their 2020 overlap), so do not treat the two as interchangeable",
     "wtd_wind_speed_100m": "Capacity-weighted wind-farm wind speed at 100 m",
     "wtd_temperature_2m": "Population-weighted temperature at 2 m",
     "hornsea_one_wind_speed_100m": "Hornsea One wind speed at 100 m",
@@ -252,8 +521,8 @@
     "dr_clearing_price": "Dynamic Regulation clearing price",
     "nbp_gbp_therm": "NBP natural-gas spot price"
   },
-  "bytes": 45844104,
-  "gzipBytes": 10768976,
-  "generatedAt": "2026-07-26T18:58:48",
-  "note": "Real GB half-hourly data. Imbalance/BM/demand/wind-solar outturn merged from the Elexon parquet extracts, weather + FR clearing prices from gb_renewable_datasets.xlsx, all on round(serial*48). NBP gas spot is a daily series joined on calendar day and carried forward at most 5 days over non-trading days. Blanks preserved as NaN; no values synthesised."
+  "bytes": 43244928,
+  "gzipBytes": 12891013,
+  "generatedAt": "2026-07-26T23:40:49",
+  "note": "Real GB half-hourly data on a generated, gap-free grid spanning every half-hourly source (the base sheet is one of them, not the row space). Imbalance/BM/demand/wind-solar outturn merged from the Elexon parquet extracts, weather + power price + FR clearing prices from gb_renewable_datasets.xlsx, all on round(serial*48). NBP gas spot is a daily series joined on calendar day and carried forward at most 5 days over non-trading days; it does not extend the grid. Measurements are stored float32, time axes float64. Blanks preserved as NaN; no values synthesised."
 }

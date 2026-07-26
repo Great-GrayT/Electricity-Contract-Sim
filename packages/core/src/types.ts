@@ -58,6 +58,9 @@ export const COLUMN_ALIASES: Record<string, string> = {
   dr_clearing_price: "drPrice",
   // NBP natural-gas spot (daily quote carried across the settlement periods of the day)
   nbp_gbp_therm: "nbpPence",
+  // the workbook's own power-price series (hourly, 2015-2020). Deliberately NOT aliased to
+  // daPrice: it disagrees with the day-ahead series on their overlap.
+  workbook_price_gbp_mwh: "workbookPrice",
 };
 
 /** Fuel columns counted as renewable generation (pumped storage excluded, per report §0). */
@@ -81,7 +84,10 @@ export interface DatasetMeta {
   sheet: string;
   rows: number;
   columns: string[];
-  dtype: "float64";
+  /** "float64" for legacy payloads; "mixed" when per-column widths are given in `dtypes`. */
+  dtype: "float64" | "mixed";
+  /** Per raw column: "f64" (time axes) or "f32" (measurements). Absent = all float64. */
+  dtypes?: Record<string, "f32" | "f64">;
   layout: "column-major";
   start: string | null;
   end: string | null;
@@ -92,6 +98,8 @@ export interface DatasetMeta {
   descriptions?: Record<string, string>;
   /** Raw column names that came from a merged source rather than the base sheet. */
   merged?: string[];
+  /** Per raw column: the first and last timestamp it is populated at (ISO), or null. */
+  coverage?: Record<string, { first: string | null; last: string | null }>;
   bytes?: number;
   gzipBytes?: number;
   generatedAt: string;

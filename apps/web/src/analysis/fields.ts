@@ -296,8 +296,13 @@ export function buildCatalog(ds: Dataset): Field[] {
     const key = COLUMN_ALIASES[column] ?? column;
     const unit = units[column] ?? "";
     const nan = ds.meta.nanCounts?.[column] ?? 0;
-    const coverage = ds.meta.rows ? 1 - nan / ds.meta.rows : 1;
+    const filled = ds.meta.rows ? 1 - nan / ds.meta.rows : 1;
     const src = merged.has(column) ? "merged source" : "base sheet";
+    // Series start and stop at different dates on a grid that spans every source, so say when.
+    const span = ds.meta.coverage?.[column];
+    const spanText = span?.first && span.last
+      ? ` · covers ${span.first.slice(0, 10)} to ${span.last.slice(0, 10)}`
+      : "";
     raw.push({
       key,
       label: titleFor(column),
@@ -308,7 +313,7 @@ export function buildCatalog(ds: Dataset): Field[] {
       column,
       decimals: unit === "SP" ? 0 : 2,
       description:
-        `${descriptions[column] ?? column} · ${src} · ${(coverage * 100).toFixed(1)}% of periods populated.`,
+        `${descriptions[column] ?? column} · ${src}${spanText} · ${(filled * 100).toFixed(1)}% of grid periods populated.`,
       domain: column === "settlementPeriod" ? Array.from({ length: 50 }, (_, i) => i + 1) : undefined,
     });
   }

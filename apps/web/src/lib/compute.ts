@@ -43,12 +43,15 @@ export function dayProfile(ds: Dataset) {
   }));
 }
 
-/** Mean day-ahead price per calendar year (real). */
+/** Mean day-ahead price per calendar year (real). Year range comes from the dataset span. */
 export function yearlyPrice(ds: Dataset) {
+  const epoch = ds.col("epochMs");
+  const first = epoch[0]!, last = epoch[ds.rows - 1]!;
+  if (!isNum(first) || !isNum(last)) return [];
   const out: { year: number; price: number }[] = [];
-  for (let y = 2020; y <= 2026; y++) {
+  for (let y = new Date(first).getUTCFullYear(); y <= new Date(last).getUTCFullYear(); y++) {
     const p = ds.where(ds.col("daPrice"), ds.yearMask(y));
-    if (p.length) out.push({ year: y, price: mean(p) });
+    if (p.length && isNum(mean(p))) out.push({ year: y, price: mean(p) });
   }
   return out;
 }

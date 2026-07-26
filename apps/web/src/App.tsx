@@ -42,6 +42,16 @@ export function App() {
 
   useEffect(() => { loadDataset().then(setDs).catch((e) => setErr(String(e))); }, []);
 
+  /**
+   * The dataset grid spans every source (2015 on), but the simulator needs the dense region
+   * where the day-ahead price it settles against actually exists. Analysis keeps the full grid.
+   */
+  const simDs = useMemo(() => {
+    if (!ds) return null;
+    const w = ds.window("daPrice");
+    return w && (w.from > 0 || w.to < ds.rows) ? ds.slice(w.from, w.to) : ds;
+  }, [ds]);
+
   // track scroll for navbar elevation (used on simulator pages; Deck has its own scroll container)
   useEffect(() => {
     if (view === "home") { setScrolled(false); return; }
@@ -51,17 +61,18 @@ export function App() {
   }, [view]);
 
   // light panels (compute once on load)
-  const profile = useMemo(() => (ds ? dayProfile(ds) : []), [ds]);
-  const yearly = useMemo(() => (ds ? yearlyPrice(ds) : []), [ds]);
-  const capture = useMemo(() => (ds ? captureStats(ds) : null), [ds]);
-  const fan = useMemo(() => (ds ? forwardFan(ds, 7, 200) : []), [ds]);
-  const timeSeries = useMemo(() => (ds ? fullTimeSeries(ds) : []), [ds]);
+  const profile = useMemo(() => (simDs ? dayProfile(simDs) : []), [simDs]);
+  const yearly = useMemo(() => (simDs ? yearlyPrice(simDs) : []), [simDs]);
+  const capture = useMemo(() => (simDs ? captureStats(simDs) : null), [simDs]);
+  const fan = useMemo(() => (simDs ? forwardFan(simDs, 7, 200) : []), [simDs]);
+  const timeSeries = useMemo(() => (simDs ? fullTimeSeries(simDs) : []), [simDs]);
 
   function runAnalysis() {
-    if (!ds) return;
+    const d = simDs;
+    if (!d) return;
     setRunning(true);
     setTimeout(() => {
-      const pricing = optionPricing(ds, capStrike);
+      const pricing = optionPricing(d, capStrike);
       const cfg: PortfolioConfig = {
         book: toBook(book),
         collar: { floor: pricing.floorStrike, cap: capStrike },
@@ -69,9 +80,9 @@ export function App() {
       };
       setAnalysis({
         pricing,
-        waterfall: riskWaterfall(ds, cfg, 4000),
-        battery: batterySweep(ds, { powerMW: batMW, durationH: batDur, roundTripEff: 0.85 }),
-        structural: structuralSummary(ds, toBook(book)),
+        waterfall: riskWaterfall(d, cfg, 4000),
+        battery: batterySweep(d, { powerMW: batMW, durationH: batDur, roundTripEff: 0.85 }),
+        structural: structuralSummary(d, toBook(book)),
       });
       setRunning(false);
     }, 30);
@@ -106,7 +117,7 @@ export function App() {
               <>
                 <h1>GB Renewable-Backed Supplier: Hedging Simulator</h1>
                 <p className="sub">
-                  {ds.rows.toLocaleString()} half-hourly periods &middot; {ds.meta.start?.slice(0, 10)} to {ds.meta.end?.slice(0, 10)} &middot;
+                  {(simDs ?? ds).rows.toLocaleString()} half-hourly periods &middot; {(simDs ?? ds).meta.start?.slice(0, 10)} to {(simDs ?? ds).meta.end?.slice(0, 10)} &middot;
                   replay + simulate the hedging book.{" "}
                   <span className="tag real">real</span> = from data,{" "}
                   <span className="tag model">model</span> = calibrated scenario.
@@ -130,7 +141,7 @@ export function App() {
             </div>
 
             {view === "analysis" && <AnalysisView ds={ds} />}
-            {view === "replay" && <ReplayView ds={ds} />}
+            {view === "replay" && simDs && <ReplayView ds={simDs} />}
 
             {view === "dashboard" && (
               <div className="grid">

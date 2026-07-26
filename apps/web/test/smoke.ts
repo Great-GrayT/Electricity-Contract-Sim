@@ -9,7 +9,14 @@ import {
 import type { PortfolioConfig } from "@gbsim/core";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const ds = await loadDatasetNode(join(here, "..", "..", "..", "data"));
+const full = await loadDatasetNode(join(here, "..", "..", "..", "data"));
+// The grid spans every source (2015 on); the hedging engine settles against the day-ahead
+// price, so it runs over that series' dense window — the same slice App.tsx hands the
+// simulator. Feeding it the whole grid would annualise over years that have no price.
+const w = full.window("daPrice");
+const ds = w ? full.slice(w.from, w.to) : full;
+console.log(`grid ${full.rows.toLocaleString()} rows -> engine window ${ds.rows.toLocaleString()} rows `
+  + `(${ds.meta.start?.slice(0, 10)} to ${ds.meta.end?.slice(0, 10)})`);
 
 const book: BookControls = { loadShare: 0.01, ownershipPct: 2.5, tariff: 110 };
 console.log("dayProfile pts:", dayProfile(ds).length, "noon price £", dayProfile(ds)[12]!.price?.toFixed(1));

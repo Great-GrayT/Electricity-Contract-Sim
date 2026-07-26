@@ -27,22 +27,81 @@ export class Dataset {
     this.byName = byName;
   }
 
-  /** Build from extractor output: meta.json object + gb.f64 buffer (column-major float64). */
+  /**
+   * Build from extractor output: meta.json object + the column-major gb.f64 buffer.
+   *
+   * Columns are laid out back to back in `meta.columns` order, each at the width given by
+   * `meta.dtypes` (float64 for the time axes, float32 for measurements; datasets written
+   * before mixed widths existed carry no `dtypes` and are read as all-float64). Float32
+   * columns are widened on load, so every consumer still sees Float64Array.
+   */
   static from(meta: DatasetMeta, buffer: ArrayBuffer): Dataset {
     const rows = meta.rows;
-    const all = new Float64Array(buffer);
-    const expected = rows * meta.columns.length;
-    if (all.length < expected) {
-      throw new Error(`gb.f64 too small: have ${all.length} floats, need ${expected}`);
+    const dtypes = meta.dtypes ?? {};
+    const width = (raw: string) => (dtypes[raw] === "f32" ? 4 : 8);
+    const needed = meta.columns.reduce((a, raw) => a + rows * width(raw), 0);
+    if (buffer.byteLength < needed) {
+      throw new Error(`gb.f64 too small: have ${buffer.byteLength} bytes, need ${needed}`);
     }
     const byName = new Map<string, Float64Array>();
-    meta.columns.forEach((raw, i) => {
-      const col = all.subarray(i * rows, (i + 1) * rows);
+    let offset = 0;
+    for (const raw of meta.columns) {
+      const bytes = rows * width(raw);
+      let col: Float64Array;
+      if (width(raw) === 4) {
+        col = Float64Array.from(new Float32Array(buffer, offset, rows));
+      } else if (offset % 8 === 0) {
+        col = new Float64Array(buffer, offset, rows);
+      } else {
+        col = new Float64Array(buffer.slice(offset, offset + bytes)); // unaligned: copy
+      }
+      offset += bytes;
       byName.set(raw, col);
       const alias = COLUMN_ALIASES[raw];
       if (alias) byName.set(alias, col);
-    });
+    }
     return new Dataset(meta, byName);
+  }
+
+  /**
+   * First and last row index where `column` holds a value, or null if it never does.
+   * The grid spans every source, so a series that starts late (or stops early) has a
+   * narrower window than the dataset — use this before running anything that needs it dense.
+   */
+  window(column: string): { from: number; to: number } | null {
+    const col = this.col(column);
+    let from = -1, to = -1;
+    for (let i = 0; i < col.length; i++) if (col[i]! === col[i]!) { from = i; break; }
+    if (from < 0) return null;
+    for (let i = col.length - 1; i >= from; i--) if (col[i]! === col[i]!) { to = i + 1; break; }
+    return { from, to };
+  }
+
+  /**
+   * A dataset over rows [from, to) sharing these buffers (no copy). Used to hand the
+   * simulator the dense window of a driving series while analysis keeps the full grid.
+   */
+  slice(from: number, to: number): Dataset {
+    const lo = Math.max(0, Math.min(from, this.rows));
+    const hi = Math.max(lo, Math.min(to, this.rows));
+    const byName = new Map<string, Float64Array>();
+    const seen = new Map<Float64Array, Float64Array>();
+    for (const [name, col] of this.byName) {
+      let cut = seen.get(col);
+      if (!cut) { cut = col.subarray(lo, hi); seen.set(col, cut); }
+      byName.set(name, cut);
+    }
+    const epoch = byName.get("epoch_ms") ?? byName.get("epochMs");
+    const iso = (v: number | undefined) => (v !== undefined && v === v ? new Date(v).toISOString().replace("Z", "") : null);
+    const meta: DatasetMeta = {
+      ...this.meta,
+      rows: hi - lo,
+      start: iso(epoch?.[0]) ?? this.meta.start,
+      end: iso(epoch?.[hi - lo - 1]) ?? this.meta.end,
+    };
+    const out = new Dataset(meta, byName);
+    for (const [name, mask] of this.fillMasks) out.fillMasks.set(name, mask.subarray(lo, hi));
+    return out;
   }
 
   /**

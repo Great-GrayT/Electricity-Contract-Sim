@@ -18,9 +18,24 @@ proxy revenue swap, PPA shapes, BESS arbitrage, integrated portfolio risk).
 
 ## Real dataset
 
-Half-hourly, **2020-01-01 → 2026-06-02, 112,363 periods, 51 columns** (46 MB raw / 11 MB gzipped).
-The base grid is sheet `GB` of `GB-realtime-data.xlsx`; every other source is left-joined onto it
-on the settlement key `round(excel_serial * 48)`.
+Half-hourly, **2015-01-01 → 2026-06-02, 200,208 periods, 52 columns** (43 MB raw / 13 MB gzipped;
+measurements are float32, time axes float64).
+
+The row space is a **generated, gap-free half-hourly grid spanning every half-hourly source** —
+the GB sheet is one input, not the row space, so the Elexon extracts and the workbook keep the
+years they reach back to instead of being clipped at 2020. Everything joins on the settlement key
+`round(excel_serial * 48)`. NBP is excluded from the span (daily, back to 2001) so it cannot
+stretch the grid with rows only one column could fill.
+
+Each column therefore starts and stops at its own date; `gb.meta.json` records `coverage`
+(first/last populated timestamp) per column, and the analysis page shows it in each field's
+tooltip. Roughly: weather from 2015, cash-out from 2015-11, demand and wind/solar outturn from
+2016-02, BM volumes from 2016-09, the base sheet's price/load/generation mix from 2020-01,
+DC prices 2021-22, DM/DR 2022.
+
+Because of that, `Dataset.window(column)` + `Dataset.slice(from, to)` exist: the simulator and
+replay run over the dense day-ahead-price window (112,560 periods, 2020 on), while the analysis
+page keeps the whole grid.
 
 | Source | Contributes |
 |---|---|
@@ -29,19 +44,24 @@ on the settlement key `round(excel_serial * 48)`.
 | `data/elexon_wind_solar_actuals_*.parquet` | Elexon solar / offshore / onshore wind outturn |
 | `data/elexon_demand_outturn_*.parquet` | INDO and ITSDO national demand |
 | `data/elexon_bm_accepted_volumes_*.parquet` | BOALF offer/bid/net volumes and acceptance counts |
-| `data/gb_renewable_datasets.xlsx` | per-farm wind speed (Hornsea One, Dogger Bank A, Sheringham Shoal, Walney Ext, Whitelee), per-city temperature (London, Manchester, Edinburgh, Birmingham), weighted weather indices, DC/DM/DR clearing prices |
+| `data/gb_renewable_datasets.xlsx` | per-farm wind speed (Hornsea One, Dogger Bank A, Sheringham Shoal, Walney Ext, Whitelee), per-city temperature (London, Manchester, Edinburgh, Birmingham), weighted weather indices, DC/DM/DR clearing prices, and its own hourly power price for 2015-2020 (`workbook_price_gbp_mwh`) |
 | `data/NBP spot_*.xlsx` (first sheet) | NBP natural-gas spot, GBp/therm, daily — joined on calendar day and carried forward at most 5 days over non-trading days |
 
 Verified: per-year price reproduces the report exactly (2022 £198, 2025 £80, 2026 £92); wind
 capture £86.6 vs baseload £98.6 → quality factor **0.878** (real cannibalisation). `gb.meta.json`
 carries a unit and one-line description for every column, which is what labels the analysis axes.
 
+**`workbook_price_gbp_mwh` is not the day-ahead price.** It is the workbook's own hourly power
+price, the only price series covering 2015-2019, but on their 2020 overlap it correlates 0.79
+with `da_price_gbp_mwh` at a mean absolute difference of £6.7/MWh. The two are kept as separate
+columns and never merged.
+
 ## Analysis page (`apps/web/src/analysis/`)
 
 A data explorer over the same dataset: pick a chart, an index, measures and filters, then export
 what you see.
 
-- **71 fields** — every raw column plus derived quantities (total generation, renewable/wind share,
+- **72 fields** — every raw column plus derived quantities (total generation, renewable/wind share,
   residual demand, gas £/MWh, clean spark spread, cash-out spread, wind-farm speed basis) and
   calendar attributes (settlement day, delivery day, week/month/quarter, year, month of year,
   day of week, hour, weekend flag).
@@ -94,7 +114,7 @@ npm run dev   -w @gbsim/web           # dashboard at http://localhost:5173
 - Capture £88.4 vs baseload £98.6 → quality factor 0.897; merchant nose £124m.
 - 2022 margin collapses (£52m vs £210m in 2020), book is short the residual into the spike.
 - Zero-cost collar (model-priced, real backtest): margin CVaR95 cut **92.8%**, std 32%.
-- BESS arbitrage: 2h £49k/MW/yr, rising with duration (1h £30k → 4h £71k).
+- BESS arbitrage: 2h £52k/MW/yr, rising with duration (1h £31k → 4h £79k).
 - Integrated waterfall: collar+battery cut annual-margin std 31%, lift worst-5% margin £122m→£171m.
 
 ## Known limitations (self-review, to revisit)

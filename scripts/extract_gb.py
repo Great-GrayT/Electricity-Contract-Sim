@@ -83,6 +83,10 @@ PARQUET_SOURCES = [
 MERGE_HEADER_ROW = 4
 MERGE_SHEETS = {"sim": "Exposure Simulator", "bess": "BESS Revenue"}
 MERGE_COLS = {
+    # the workbook's own power-price column: hourly, 2015-2020 only, and NOT the same series
+    # as the base sheet's day-ahead price (on their 2020 overlap r=0.79, mean |diff| £6.7/MWh),
+    # so it is carried separately and never folded into da_price_gbp_mwh.
+    "workbook_price_gbp_mwh":           ("sim", "AG", "price"),
     # weighted real wind-farm wind speed + weighted temperature (clean indices for hedges)
     "wtd_wind_speed_100m":              ("sim", "AM", "wtd_wind_speed_100m"),
     "wtd_temperature_2m":               ("sim", "AR", "wtd_temperature_2m"),
@@ -106,6 +110,11 @@ MERGE_COLS = {
 NBP_GLOB = "NBP spot_*.xlsx"
 NBP_COL = "nbp_gbp_therm"
 NBP_MAX_STALE_DAYS = 5  # carry the last quote over a weekend / bank holiday, no further
+
+# Columns kept at float64 in the payload. epoch-ms needs the mantissa (float32 would blur a
+# timestamp by minutes); everything else is a measurement where float32's ~7 significant
+# digits are ample, and halving them halves the download.
+F64_COLUMNS = {"datetime", "epoch_ms"}
 
 # Units + one-line descriptions for every column the pipeline can emit. Surfaced in
 # gb.meta.json so the web analysis page labels axes without a second catalogue.
@@ -161,6 +170,11 @@ UNITS = {
     "dm_clearing_price": ("GBP/MW/h", "Dynamic Moderation clearing price"),
     "dr_clearing_price": ("GBP/MW/h", "Dynamic Regulation clearing price"),
     NBP_COL: ("GBp/therm", "NBP natural-gas spot price"),
+    "workbook_price_gbp_mwh": ("GBP/MWh", (
+        "Power price from the workbook's Exposure Simulator sheet: hourly, 2015-2020 only. "
+        "A different series from the day-ahead price (r=0.79, mean |diff| GBP 6.7/MWh on their "
+        "2020 overlap), so do not treat the two as interchangeable"
+    )),
 }
 
 
@@ -171,8 +185,13 @@ class array_f64:
         self._a = array.array("d")
     def append(self, v):
         self._a.append(v)
+    def __setitem__(self, i, v):
+        self._a[i] = v
     def tobytes(self):
         return self._a.tobytes()
+    def tobytes_f32(self):
+        import array
+        return array.array("f", self._a).tobytes()
     def first(self):
         return self._a[0]
     def last(self):
@@ -181,6 +200,11 @@ class array_f64:
         return sum(1 for x in self._a if x != x)
     def __iter__(self):
         return iter(self._a)
+
+
+def key_to_iso(key: int) -> str:
+    """Settlement key (half-hours since the Excel epoch) -> ISO timestamp."""
+    return (EPOCH + datetime.timedelta(days=key / 48.0)).isoformat()
 
 
 # ---------------------------------------------------------------------------
@@ -389,9 +413,12 @@ def main():
     idx_of = {l: i for i, l in enumerate(letters)}
     ncol = len(letters)
 
-    # --- stream data rows; cells inline numeric, blanks -> NaN ---
-    cols = [array_f64() for _ in range(ncol)]
-    rows = 0
+    # --- stream data rows into {settlement key: [values]} (blanks -> NaN) ---
+    dt_i = names.index("datetime") if "datetime" in names else None
+    if dt_i is None:
+        raise SystemExit("base sheet has no 'datetime' column, cannot join any source")
+    base_by_key = {}
+    base_rows = 0
     for rn, body in iter_rows(z, part):
         if rn == 1:
             continue
@@ -406,33 +433,77 @@ def main():
                 rowvals[idx_of[letter]] = float(v)
             except ValueError:
                 pass
-        for i in range(ncol):
-            cols[i].append(rowvals[i])
-        rows += 1
-    print(f"base sheet={SHEET_NAME} rows={rows} cols={ncol}")
+        serial = rowvals[dt_i]
+        if serial != serial:
+            continue
+        base_by_key[round(serial * 48)] = rowvals
+        base_rows += 1
+    print(f"base sheet={SHEET_NAME} rows={base_rows} cols={ncol}")
 
-    # datetime serial -> add epoch-ms companion column for the engine
-    dt_i = names.index("datetime") if "datetime" in names else None
-    if dt_i is None:
-        raise SystemExit("base sheet has no 'datetime' column, cannot join any source")
+    # --- read every half-hourly merge source before sizing the grid ---
+    parquet_tables = []   # (out_names, table)
+    for pattern, col_map in PARQUET_SOURCES:
+        path = one_file(pattern)
+        if not path:
+            print(f"   ! no file matching data/{pattern}, skipping {list(col_map.values())}")
+            continue
+        table = read_parquet_merge(path, col_map)
+        print(f"parquet {os.path.basename(path)}: {len(table):,} half-hours")
+        parquet_tables.append((list(col_map.values()), table))
+
+    xlsx_tables = {}
+    if os.path.exists(XLSX2):
+        z2 = zipfile.ZipFile(XLSX2)
+        by_sheet = {}
+        for out_name, (sheet, letter, expected) in MERGE_COLS.items():
+            by_sheet.setdefault(sheet, {})[letter] = expected
+        for sheet, letter_map in by_sheet.items():
+            part2 = resolve_sheet(z2, MERGE_SHEETS[sheet])
+            print(f"streaming '{MERGE_SHEETS[sheet]}' for {len(letter_map)} columns...")
+            xlsx_tables[sheet] = read_xlsx_merge(z2, part2, letter_map, MERGE_HEADER_ROW)
+            print(f"   {len(xlsx_tables[sheet]):,} half-hours")
+    else:
+        print(f"   ! {XLSX2} not found, skipping weather + FR columns")
+
+    # --- row grid = every half-hour spanned by the half-hourly sources ---------------
+    # The base sheet no longer defines the row space: the Elexon extracts and the workbook
+    # reach years further back, and clipping to the base sheet would silently discard them.
+    # NBP is deliberately excluded from the span (it reaches 2001 and is daily, so it would
+    # stretch the grid by two decades of rows that only one column could populate).
+    key_sources = [base_by_key.keys()] + [t.keys() for _, t in parquet_tables] + [t.keys() for t in xlsx_tables.values()]
+    all_keys = [k for ks in key_sources for k in ks]
+    grid_lo, grid_hi = min(all_keys), max(all_keys)
+    rows = grid_hi - grid_lo + 1
+    print(f"grid: {rows:,} half-hours, {key_to_iso(grid_lo)} -> {key_to_iso(grid_hi)}"
+          f"  (base sheet covers {base_rows:,})")
+
+    # --- time axes are generated from the grid, so they are exact and gap-free ---
+    cols = [array_f64() for _ in range(ncol)]
+    for key in range(grid_lo, grid_hi + 1):
+        rowvals = base_by_key.get(key)
+        if rowvals is None:
+            for i in range(ncol):
+                cols[i].append(NaN)
+        else:
+            for i in range(ncol):
+                cols[i].append(rowvals[i])
+        cols[dt_i][-1] = key / 48.0
     epoch_ms = array_f64()
-    for s in cols[dt_i]:
-        epoch_ms.append((EPOCH + datetime.timedelta(days=s)).timestamp() * 1000.0 if s == s else NaN)
+    for key in range(grid_lo, grid_hi + 1):
+        epoch_ms.append((EPOCH + datetime.timedelta(days=key / 48.0)).timestamp() * 1000.0)
     names.append("epoch_ms")
     cols.append(epoch_ms)
     ncol += 1
 
-    base_keys = [round(s * 48) if s == s else None for s in cols[dt_i]]
-    base_days = [int(s // 1) if s == s else None for s in cols[dt_i]]
     merged_added = []
 
     def add_joined(out_name, table, field):
-        """Append one column built by looking `field` up in `table` per base row."""
+        """Append one column built by looking `field` up in `table` per grid row."""
         nonlocal ncol
         arr = array_f64()
         hits = 0
-        for key in base_keys:
-            row = table.get(key) if key is not None else None
+        for key in range(grid_lo, grid_hi + 1):
+            row = table.get(key)
             v = row.get(field) if row else None
             if v is not None and v == v:
                 arr.append(v)
@@ -444,33 +515,13 @@ def main():
         ncol += 1
         merged_added.append((out_name, hits))
 
-    # --- half-hourly parquet sources ---
-    for pattern, col_map in PARQUET_SOURCES:
-        path = one_file(pattern)
-        if not path:
-            print(f"   ! no file matching data/{pattern}, skipping {list(col_map.values())}")
-            continue
-        table = read_parquet_merge(path, col_map)
-        print(f"parquet {os.path.basename(path)}: {len(table):,} half-hours")
-        for out_name in col_map.values():
+    for out_names, table in parquet_tables:
+        for out_name in out_names:
             add_joined(out_name, table, out_name)
 
-    # --- weather + FR clearing prices from the workbook ---
-    if os.path.exists(XLSX2):
-        z2 = zipfile.ZipFile(XLSX2)
-        by_sheet = {}
-        for out_name, (sheet, letter, expected) in MERGE_COLS.items():
-            by_sheet.setdefault(sheet, {})[letter] = expected
-        tables = {}
-        for sheet, letter_map in by_sheet.items():
-            part2 = resolve_sheet(z2, MERGE_SHEETS[sheet])
-            print(f"streaming '{MERGE_SHEETS[sheet]}' for {len(letter_map)} columns...")
-            tables[sheet] = read_xlsx_merge(z2, part2, letter_map, MERGE_HEADER_ROW)
-            print(f"   {len(tables[sheet]):,} half-hours")
-        for out_name, (sheet, letter, expected) in MERGE_COLS.items():
-            add_joined(out_name, tables[sheet], expected)
-    else:
-        print(f"   ! {XLSX2} not found, skipping weather + FR columns")
+    for out_name, (sheet, letter, expected) in MERGE_COLS.items():
+        if sheet in xlsx_tables:
+            add_joined(out_name, xlsx_tables[sheet], expected)
 
     # --- NBP gas spot: daily -> half-hourly, carried forward over non-trading days ---
     nbp_path = one_file(NBP_GLOB)
@@ -479,14 +530,14 @@ def main():
         print(f"NBP {os.path.basename(nbp_path)}: {len(daily):,} quotes, unit={unit}")
         arr = array_f64()
         hits = 0
-        for day in base_days:
+        for key in range(grid_lo, grid_hi + 1):
+            day = key // 48
             v = NaN
-            if day is not None:
-                for back in range(0, NBP_MAX_STALE_DAYS + 1):
-                    q = daily.get(day - back)
-                    if q is not None:
-                        v = q
-                        break
+            for back in range(0, NBP_MAX_STALE_DAYS + 1):
+                q = daily.get(day - back)
+                if q is not None:
+                    v = q
+                    break
             arr.append(v)
             if v == v:
                 hits += 1
@@ -501,11 +552,21 @@ def main():
     for n, h in merged_added:
         print(f"   {n}: {h:,}/{rows:,}")
 
-    # --- write column-major float64 binary (+ gzip copy for the web app) ---
+    # --- write the column-major binary ------------------------------------------------
+    # Time axes stay float64 (epoch-ms needs the mantissa); every measurement is float32,
+    # which halves the payload at ~7 significant digits — far more than any of these series
+    # carries. f64 columns are written first so both blocks stay naturally aligned.
+    dtypes = {n: ("f64" if n in F64_COLUMNS else "f32") for n in names}
+    order = [i for i, n in enumerate(names) if dtypes[n] == "f64"]
+    order += [i for i, n in enumerate(names) if dtypes[n] != "f64"]
+    names = [names[i] for i in order]
+    cols = [cols[i] for i in order]
+    dt_i = names.index("datetime")
+
     bin_path = os.path.join(OUT_DIR, "gb.f64")
     with open(bin_path, "wb") as fo:
-        for col in cols:
-            fo.write(col.tobytes())
+        for name, col in zip(names, cols):
+            fo.write(col.tobytes() if dtypes[name] == "f64" else col.tobytes_f32())
     raw_size = os.path.getsize(bin_path)
     # NB: extension is .z, not .gz — static servers (Vite's sirv, and CDNs) special-case .gz
     # by content-negotiating it against a sibling file, which breaks a direct fetch. With .z
@@ -518,11 +579,22 @@ def main():
             fo.write(chunk)
     gz_size = os.path.getsize(bin_path + ".z")
 
-    def serial_to_iso(s):
-        return (EPOCH + datetime.timedelta(days=s)).isoformat() if s == s else None
+    start = key_to_iso(grid_lo)
+    end = key_to_iso(grid_hi)
 
-    start = serial_to_iso(cols[dt_i].first())
-    end = serial_to_iso(cols[dt_i].last())
+    # First and last populated row per column, so consumers can see each series' real span.
+    coverage = {}
+    for i, name in enumerate(names):
+        first = last = None
+        for j, v in enumerate(cols[i]):
+            if v == v:
+                if first is None:
+                    first = j
+                last = j
+        coverage[name] = {
+            "first": key_to_iso(grid_lo + first) if first is not None else None,
+            "last": key_to_iso(grid_lo + last) if last is not None else None,
+        }
 
     meta = {
         "source": "GB-realtime-data.xlsx + data/*.parquet + data/gb_renewable_datasets.xlsx + data/NBP spot_*.xlsx",
@@ -530,22 +602,27 @@ def main():
         "rows": rows,
         "columns": names,
         "merged": [n for n, _ in merged_added],
-        "dtype": "float64",
+        "dtype": "mixed",
+        "dtypes": dtypes,
         "layout": "column-major",
         "start": start,
         "end": end,
         "nanCounts": {names[i]: cols[i].nan_count() for i in range(ncol)},
+        "coverage": coverage,
         "units": {n: UNITS.get(n, ("", ""))[0] for n in names},
         "descriptions": {n: UNITS.get(n, ("", ""))[1] for n in names},
         "bytes": raw_size,
         "gzipBytes": gz_size,
         "generatedAt": datetime.datetime.now().isoformat(timespec="seconds"),
         "note": (
-            "Real GB half-hourly data. Imbalance/BM/demand/wind-solar outturn merged from the "
-            "Elexon parquet extracts, weather + FR clearing prices from gb_renewable_datasets.xlsx, "
-            "all on round(serial*48). NBP gas spot is a daily series joined on calendar day and "
-            f"carried forward at most {NBP_MAX_STALE_DAYS} days over non-trading days. Blanks "
-            "preserved as NaN; no values synthesised."
+            "Real GB half-hourly data on a generated, gap-free grid spanning every half-hourly "
+            "source (the base sheet is one of them, not the row space). Imbalance/BM/demand/"
+            "wind-solar outturn merged from the Elexon parquet extracts, weather + power price + "
+            "FR clearing prices from gb_renewable_datasets.xlsx, all on round(serial*48). NBP gas "
+            "spot is a daily series joined on calendar day and carried forward at most "
+            f"{NBP_MAX_STALE_DAYS} days over non-trading days; it does not extend the grid. "
+            "Measurements are stored float32, time axes float64. Blanks preserved as NaN; "
+            "no values synthesised."
         ),
     }
     with open(os.path.join(OUT_DIR, "gb.meta.json"), "w", encoding="utf-8") as fo:
