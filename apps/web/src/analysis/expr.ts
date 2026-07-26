@@ -89,6 +89,20 @@ const FUNCTIONS: Record<string, { arity: number[]; fn: (...a: number[]) => numbe
 
 export const FUNCTION_HELP = Object.values(FUNCTIONS).map((f) => f.help);
 
+/** Name + signature of every callable, for the formula editor's suggestion list. */
+export const FUNCTION_SPECS: { name: string; help: string }[] =
+  Object.entries(FUNCTIONS).map(([name, spec]) => ({ name, help: spec.help }));
+
+/** Bare words the parser understands outside a call. */
+export const KEYWORD_SPECS: { name: string; help: string }[] = [
+  { name: "and", help: "both conditions hold" },
+  { name: "or", help: "either condition holds" },
+  { name: "not", help: "negates the condition that follows" },
+  { name: "true", help: "constant 1" },
+  { name: "false", help: "constant 0" },
+  { name: "pi", help: "3.14159..." },
+];
+
 /** Compile a formula against a set of known field keys. Throws ExprError on any problem. */
 export function compile(src: string, known: Set<string>, series: (key: string) => Float64Array): CompileResult {
   const toks = tokenize(src);

@@ -12,6 +12,7 @@ import {
 } from "./charts";
 import { FUNCTION_HELP } from "./expr";
 import { FieldSelect, Hint, MeasureList, NumberField, Section, Toggle } from "./controls";
+import { FormulaInput } from "./FormulaInput";
 import { Plot } from "./Plot";
 import { DataTable } from "./DataTable";
 import "./analysis.css";
@@ -472,12 +473,13 @@ export function AnalysisView({ ds }: { ds: Dataset }) {
                     )}
                   </>
                 ) : (
-                  <input
-                    type="text"
-                    className="an-expr-input"
-                    placeholder="renewShare < 0.2 and nbpPence > 100"
+                  <FormulaInput
                     value={f.source}
-                    onChange={(e) => patchFilter(f.id, { source: e.target.value })}
+                    onChange={(v) => patchFilter(f.id, { source: v })}
+                    fields={catalog}
+                    invalid={!!filterErrors[f.id]}
+                    placeholder="renewShare < 0.2 and nbpPence > 100"
+                    ariaLabel="Filter formula"
                   />
                 )}
                 <button className="an-icon-btn" onClick={() => setFilters((fs) => fs.filter((x) => x.id !== f.id))} aria-label="Remove filter">
@@ -525,10 +527,13 @@ export function AnalysisView({ ds }: { ds: Dataset }) {
                     <Trash2 size={13} />
                   </button>
                 </div>
-                <input
-                  type="text" className="an-expr-input" placeholder="(totalWind + Solar) / totalGen"
+                <FormulaInput
                   value={c.source}
-                  onChange={(e) => setCustomFields((cs) => cs.map((x) => (x.id === c.id ? { ...x, source: e.target.value } : x)))}
+                  onChange={(v) => setCustomFields((cs) => cs.map((x) => (x.id === c.id ? { ...x, source: v } : x)))}
+                  fields={catalog}
+                  invalid={!!customErrors[c.id]}
+                  placeholder="(totalWind + solar) / totalGen"
+                  ariaLabel="Custom field formula"
                 />
                 <div className="an-custom-foot">
                   <span className="muted">key: <code>{slug(c.name)}</code></span>
@@ -537,9 +542,10 @@ export function AnalysisView({ ds }: { ds: Dataset }) {
               </div>
             ))}
             <p className="muted an-note">
-              Operators <code>+ - * / % ^</code>, comparisons, <code>and/or/not</code>, and{" "}
+              Start typing a field, function or keyword and the box suggests matches: Tab or Enter
+              inserts, Ctrl+Space lists everything. Operators <code>+ - * / % ^</code>, comparisons,{" "}
+              <code>and/or/not</code>, and{" "}
               <Hint label={<span className="an-link">functions</span>}>{FUNCTION_HELP.join(" · ")}</Hint>.
-              Field keys come from the pickers above.
             </p>
           </Section>
 

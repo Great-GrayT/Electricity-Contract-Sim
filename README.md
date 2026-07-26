@@ -87,6 +87,9 @@ what you see.
   all/any, plus formula conditions such as `renewShare < 0.2 and nbpPence > 100`. Formulas are
   parsed and compiled, never `eval`'d; a missing value never satisfies a condition.
 - **Custom fields** | name a formula (`(totalWind + solar) / totalGen`) and it joins every picker.
+- **Formula completion** | both formula boxes suggest field keys, functions and keywords as you
+  type: Tab or Enter inserts, Ctrl+Space lists everything, functions bring their brackets, and an
+  operator row inserts brackets, commas, comparisons and the and/or/not logic at the caret.
 - **21 chart types** across trend, distribution, relationship, matrix and 3-D families, each with a
   hover guide covering what it is for, how to wire it up and how to read it.
 - **Table + export** | sortable, paginated, exports to CSV and XLSX with a Definition sheet
