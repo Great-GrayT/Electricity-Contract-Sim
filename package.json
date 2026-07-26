@@ -10,6 +10,7 @@
   "scripts": {
     "extract": "python scripts/extract_gb.py GB",
     "verify": "tsx packages/core/test/verify.ts",
+    "test:web": "tsx apps/web/test/smoke.ts && tsx apps/web/test/analysis-smoke.ts && tsx apps/web/test/export-smoke.ts",
     "build:core": "npm run build -w @gbsim/core",
     "dev": "npm run build:core && npm run dev -w @gbsim/web",
     "build:web": "npm run build:core && npm run build -w @gbsim/web",

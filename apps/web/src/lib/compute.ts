@@ -141,38 +141,74 @@ export function structuralSummary(ds: Dataset, book: SupplyBook) {
 const round = (x: number) => Math.round(x * 100) / 100;
 export { std };
 
-/** Full time-series at daily resolution — daily-averaged rows for the entire dataset. */
-export function fullTimeSeries(ds: Dataset): {
-  date: string; price: number; loadGW: number; windGW: number;
-  solarGW: number; nuclearGW: number; fossilGasGW: number;
-}[] {
+/** Mean over a half-open row window, skipping NaN. NaN when the window holds no observation. */
+function windowMean(col: Float64Array, from: number, to: number): number {
+  let s = 0, n = 0;
+  for (let j = from; j < to; j++) { const v = col[j]!; if (isNum(v)) { s += v; n++; } }
+  return n ? s / n : NaN;
+}
+
+/** Sum over a half-open row window, skipping NaN. NaN when the window holds no observation. */
+function windowSum(col: Float64Array, from: number, to: number): number {
+  let s = 0, n = 0;
+  for (let j = from; j < to; j++) { const v = col[j]!; if (isNum(v)) { s += v; n++; } }
+  return n ? s : NaN;
+}
+
+export interface DailyRow {
+  date: string;
+  price: number; loadGW: number; windGW: number; solarGW: number;
+  nuclearGW: number; fossilGasGW: number;
+  /** NBP gas spot, GBp/therm, and the same price as GBP/MWh of gas. */
+  gasPence: number; gasGbpMwh: number;
+  /** Day-ahead minus gas at 50% CCGT efficiency. */
+  sparkSpread: number;
+  /** Imbalance (cash-out) sell price and its spread to day-ahead. */
+  cashout: number; cashoutSpread: number;
+  /** Net imbalance volume, MWh per day (signed: +ve = system short). */
+  nivMwh: number;
+  /** National demand outturn, GW. */
+  indoGW: number; itsdoGW: number;
+  /** Accepted balancing-mechanism volumes, MWh per day. */
+  bmOfferMwh: number; bmBidMwh: number;
+}
+
+/**
+ * Full time-series at daily resolution — one row per 48 half-hourly periods.
+ * Power series are averaged (GW), volume series summed (MWh/day), prices averaged.
+ */
+export function fullTimeSeries(ds: Dataset): DailyRow[] {
   const STRIDE = 48; // half-hourly periods per day
   const startMs = new Date(ds.meta.start ?? "2019-01-01").getTime();
   const daPrice = ds.col("daPrice"), load = ds.col("load");
-  const windOff = ds.col("windOffshore"), windOn = ds.col("windOnshore");
+  const wind = ds.totalWind;
   const solar = ds.col("solar"), nuclear = ds.col("nuclear"), fossilGas = ds.col("fossilGas");
-  const out: ReturnType<typeof fullTimeSeries> = [];
+  const gas = ds.col("nbpPence"), gasMwh = ds.col("gasGbpMwh"), spark = ds.col("sparkSpread");
+  const cashout = ds.col("imbalanceSell"), spread = ds.col("cashoutSpread"), niv = ds.col("niv");
+  const indo = ds.col("indo"), itsdo = ds.col("itsdo");
+  const bmOffer = ds.col("bmOfferVolBoalf"), bmBid = ds.col("bmBidVolBoalf");
+  const gw = (x: number) => (isNum(x) ? round(x / 1000) : NaN);
+  const out: DailyRow[] = [];
   for (let i = 0; i + STRIDE <= ds.rows; i += STRIDE) {
-    const end = Math.min(i + STRIDE, ds.rows);
-    const ph = (end - i) * 0.5; // total hours in window
-    let ps = 0, pn = 0, ls = 0, ws = 0, ss = 0, ns = 0, gs = 0;
-    for (let j = i; j < end; j++) {
-      const p = daPrice[j]!; if (isNum(p)) { ps += p; pn++; }
-      const l = load[j]!; if (isNum(l)) ls += l;
-      const wo = windOff[j]!; if (isNum(wo)) ws += wo;
-      const wn = windOn[j]!; if (isNum(wn)) ws += wn;
-      const sl = solar[j]!; if (isNum(sl)) ss += sl;
-      const nu = nuclear[j]!; if (isNum(nu)) ns += nu;
-      const fg = fossilGas[j]!; if (isNum(fg)) gs += fg;
-    }
+    const end = i + STRIDE;
     out.push({
       date: new Date(startMs + i * 30 * 60 * 1000).toISOString().slice(0, 10),
-      price: pn ? round(ps / pn) : NaN,
-      loadGW: round(ls / ph / 1000),
-      windGW: round(ws / ph / 1000),
-      solarGW: round(ss / ph / 1000),
-      nuclearGW: round(ns / ph / 1000),
-      fossilGasGW: round(gs / ph / 1000),
+      price: round(windowMean(daPrice, i, end)),
+      loadGW: gw(windowMean(load, i, end)),
+      windGW: gw(windowMean(wind, i, end)),
+      solarGW: gw(windowMean(solar, i, end)),
+      nuclearGW: gw(windowMean(nuclear, i, end)),
+      fossilGasGW: gw(windowMean(fossilGas, i, end)),
+      gasPence: round(windowMean(gas, i, end)),
+      gasGbpMwh: round(windowMean(gasMwh, i, end)),
+      sparkSpread: round(windowMean(spark, i, end)),
+      cashout: round(windowMean(cashout, i, end)),
+      cashoutSpread: round(windowMean(spread, i, end)),
+      nivMwh: round(windowSum(niv, i, end)),            // NIV is already per-period MWh
+      indoGW: gw(windowMean(indo, i, end)),
+      itsdoGW: gw(windowMean(itsdo, i, end)),
+      bmOfferMwh: round(windowSum(bmOffer, i, end)),
+      bmBidMwh: round(windowSum(bmBid, i, end)),
     });
   }
   return out;

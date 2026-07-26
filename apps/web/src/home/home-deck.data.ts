@@ -1,4 +1,4 @@
-export type View = 'home' | 'dashboard' | 'replay';
+export type View = 'home' | 'dashboard' | 'analysis' | 'replay';
 
 export type SlideTheme = 'dark' | 'light' | 'white';
 

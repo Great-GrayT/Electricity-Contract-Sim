@@ -1,4 +1,7 @@
-import { COLUMN_ALIASES, RENEWABLE_FUELS, FOSSIL_FUELS, type DatasetMeta } from "./types.js";
+import {
+  COLUMN_ALIASES, RENEWABLE_FUELS, FOSSIL_FUELS, ALL_GENERATION,
+  THERM_TO_MWH, CCGT_EFFICIENCY, type DatasetMeta,
+} from "./types.js";
 import { forwardFillInPlace } from "./stats.js";
 
 /**
@@ -16,6 +19,7 @@ export class Dataset {
   readonly meta: DatasetMeta;
   private readonly byName = new Map<string, Float64Array>();
   private readonly derivedCache = new Map<string, Float64Array>();
+  private readonly fillMasks = new Map<string, Uint8Array>();
 
   private constructor(meta: DatasetMeta, byName: Map<string, Float64Array>) {
     this.meta = meta;
@@ -53,10 +57,31 @@ export class Dataset {
     const seen = new Set<Float64Array>();
     for (const n of names) {
       const col = this.byName.get(n);
-      if (col && !seen.has(col)) { seen.add(col); total += forwardFillInPlace(col); }
+      if (!col || seen.has(col)) continue;
+      seen.add(col);
+      // Remember where the gaps were, so consumers that must not see a carried-forward
+      // value (data analysis, exports) can mask them back out. 1 = value was filled.
+      const mask = new Uint8Array(col.length);
+      let any = false;
+      for (let i = 0; i < col.length; i++) if (col[i]! !== col[i]!) { mask[i] = 1; any = true; }
+      const filled = forwardFillInPlace(col);
+      if (any) {
+        // leading NaNs stay NaN, so only mark entries that actually received a value
+        for (let i = 0; i < col.length; i++) if (mask[i] && col[i]! !== col[i]!) mask[i] = 0;
+        this.fillMasks.set(n, mask);
+      }
+      total += filled;
     }
     this.derivedCache.clear();
     return total;
+  }
+
+  /**
+   * Per-row flags marking entries that forwardFill() carried forward (1 = synthetic carry,
+   * not an observation). Null when the column was never gapped. Raw column names only.
+   */
+  filledMask(name: string): Uint8Array | null {
+    return this.fillMasks.get(name) ?? null;
   }
 
   has(name: string): boolean {
@@ -116,11 +141,32 @@ export class Dataset {
   }
 }
 
+/** Element-wise map over two columns, NaN-propagating. */
+function zip(d: Dataset, a: string, b: string, f: (x: number, y: number) => number): Float64Array {
+  const A = d.col(a), B = d.col(b);
+  const out = new Float64Array(d.rows);
+  for (let i = 0; i < d.rows; i++) out[i] = f(A[i]!, B[i]!);
+  return out;
+}
+
 /** Registry of derived-column builders. */
 const DERIVED = new Map<string, (d: Dataset) => Float64Array>([
   ["totalWind", (d) => d.sumCols(["windOffshore", "windOnshore"])],
   ["totalRenew", (d) => d.sumCols(RENEWABLE_FUELS)],
   ["fossil", (d) => d.sumCols(FOSSIL_FUELS)],
+  ["totalGen", (d) => d.sumCols(ALL_GENERATION)],
+  ["renewShare", (d) => zip(d, "totalRenew", "totalGen", (r, t) => (t > 0 ? r / t : NaN))],
+  ["windShare", (d) => zip(d, "totalWind", "totalGen", (w, t) => (t > 0 ? w / t : NaN))],
+  // NBP GBp/therm -> GBP/MWh of gas, then the clean spark spread at CCGT_EFFICIENCY.
+  ["gasGbpMwh", (d) => {
+    const p = d.col("nbpPence");
+    const out = new Float64Array(d.rows);
+    for (let i = 0; i < d.rows; i++) out[i] = p[i]! / 100 / THERM_TO_MWH;
+    return out;
+  }],
+  ["sparkSpread", (d) => zip(d, "daPrice", "gasGbpMwh", (p, g) => p - g / CCGT_EFFICIENCY)],
+  // cash-out minus day-ahead: what an unhedged imbalance costs against the traded price
+  ["cashoutSpread", (d) => zip(d, "imbalanceSell", "daPrice", (c, p) => c - p)],
   ["residualDemand", (d) => {
     const load = d.col("load"), renew = d.col("totalRenew");
     const out = new Float64Array(d.rows);

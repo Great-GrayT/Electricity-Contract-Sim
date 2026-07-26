@@ -10,6 +10,7 @@ import {
   riskWaterfall, batterySweep, structuralSummary, fullTimeSeries, type BookControls,
 } from "./lib/compute";
 import { ReplayView } from "./replay/ReplayView";
+import { AnalysisView } from "./analysis/AnalysisView";
 import { NavBar } from "./home/NavBar";
 import { Deck } from "./home/Deck";
 import type { View } from "./home/home-deck.data";
@@ -90,7 +91,7 @@ export function App() {
   return (
     <>
       <NavBar view={view} onNav={setView} scrolled={scrolled} />
-      <div className="wrap" style={{ paddingTop: 70 }}>
+      <div className={view === "analysis" ? "wrap wrap-wide" : "wrap"} style={{ paddingTop: 70 }}>
         {err && (
           <>
             <h1>Load error</h1>
@@ -101,19 +102,34 @@ export function App() {
         {!err && !ds && <h1>Loading real GB dataset&hellip;</h1>}
         {!err && ds && (
           <>
-            <h1>GB Renewable-Backed Supplier: Hedging Simulator</h1>
-            <p className="sub">
-              {ds.rows.toLocaleString()} half-hourly periods &middot; {ds.meta.start?.slice(0, 10)} to {ds.meta.end?.slice(0, 10)} &middot;
-              replay + simulate the hedging book.{" "}
-              <span className="tag real">real</span> = from data,{" "}
-              <span className="tag model">model</span> = calibrated scenario.
-            </p>
+            {view !== "analysis" && (
+              <>
+                <h1>GB Renewable-Backed Supplier: Hedging Simulator</h1>
+                <p className="sub">
+                  {ds.rows.toLocaleString()} half-hourly periods &middot; {ds.meta.start?.slice(0, 10)} to {ds.meta.end?.slice(0, 10)} &middot;
+                  replay + simulate the hedging book.{" "}
+                  <span className="tag real">real</span> = from data,{" "}
+                  <span className="tag model">model</span> = calibrated scenario.
+                </p>
+              </>
+            )}
 
             <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-              <button onClick={() => setView("dashboard")} style={{ background: view === "dashboard" ? "var(--app-accent-blue)" : "var(--app-control-bg)", color: view === "dashboard" ? "#fff" : "var(--app-control-text)" }}>Data</button>
-              <button onClick={() => setView("replay")} style={{ background: view === "replay" ? "var(--app-accent-blue)" : "var(--app-control-bg)", color: view === "replay" ? "#fff" : "var(--app-control-text)" }}>Replay</button>
+              {(["dashboard", "analysis", "replay"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  style={{
+                    background: view === v ? "var(--app-accent-blue)" : "var(--app-control-bg)",
+                    color: view === v ? "#fff" : "var(--app-control-text)",
+                  }}
+                >
+                  {v === "dashboard" ? "Data" : v === "analysis" ? "Analysis" : "Replay"}
+                </button>
+              ))}
             </div>
 
+            {view === "analysis" && <AnalysisView ds={ds} />}
             {view === "replay" && <ReplayView ds={ds} />}
 
             {view === "dashboard" && (
@@ -186,6 +202,39 @@ export function App() {
                   <h2>Generation mix — stacked <span className="tag real">real</span></h2>
                   <GenStackChart data={timeSeries} />
                   <p className="muted">Wind, solar, nuclear and fossil gas share of national output, daily average GW.</p>
+                </div>
+
+                <div className="card full">
+                  <h2>NBP gas spot vs power price <span className="tag real">real</span></h2>
+                  <GasChart data={timeSeries} />
+                  <p className="muted">
+                    NBP daily spot converted to £/MWh of gas (1 therm = 29.3071 kWh) against the day-ahead power price.
+                    Gas set the 2021–23 shock; the clean spark spread below is what a CCGT captured.
+                  </p>
+                </div>
+
+                <div className="card">
+                  <h2>Clean spark spread, 50% efficiency <span className="tag real">real</span></h2>
+                  <SparkChart data={timeSeries} />
+                  <p className="muted">Day-ahead minus gas cost at 50% efficiency, carbon excluded. Negative days are when gas plant was out of the money.</p>
+                </div>
+
+                <div className="card">
+                  <h2>Cash-out vs day-ahead <span className="tag real">real</span></h2>
+                  <CashoutChart data={timeSeries} />
+                  <p className="muted">System sell price minus day-ahead, daily average. This is the price of being out of balance — the residual leg a supplier carries.</p>
+                </div>
+
+                <div className="card">
+                  <h2>National demand outturn <span className="tag real">real</span></h2>
+                  <DemandChart data={timeSeries} />
+                  <p className="muted">Elexon INDO and ITSDO against the ENTSO-E load series, daily average GW.</p>
+                </div>
+
+                <div className="card">
+                  <h2>Balancing-mechanism volumes <span className="tag real">real</span></h2>
+                  <BmChart data={timeSeries} />
+                  <p className="muted">Accepted offer and bid volumes per day (BOALF), with net imbalance volume. Offers turn plant up, bids turn it down.</p>
                 </div>
 
                 {/* Controls */}
@@ -364,7 +413,7 @@ function WaterfallChart({ data }: { data: { label: string; std: number; downside
   );
 }
 
-type TsRow = { date: string; price: number; loadGW: number; windGW: number; solarGW: number; nuclearGW: number; fossilGasGW: number };
+type TsRow = ReturnType<typeof fullTimeSeries>[number];
 
 function PriceHistoryChart({ data }: { data: TsRow[] }) {
   const c = useChartColors();
@@ -422,6 +471,105 @@ function GenStackChart({ data }: { data: TsRow[] }) {
         <Area dataKey="fossilGasGW" name="fossil gas" stackId="g" stroke="#f85149" fill="#f8514966" hide={hide("fossilGasGW")} />
         <Brush dataKey="date" height={20} stroke={c.axisColor} fill={c.tooltipBg} travellerWidth={8} />
       </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+function GasChart({ data }: { data: TsRow[] }) {
+  const { hide, lp } = useLegendToggle();
+  const c = useChartColors();
+  const { AXIS, tooltipStyle } = chartScales(c);
+  return (
+    <ResponsiveContainer width="100%" height={240}>
+      <LineChart data={data}>
+        <CartesianGrid stroke={c.gridColor} />
+        <XAxis dataKey="date" {...AXIS} minTickGap={60} />
+        <YAxis {...AXIS} label={{ value: "£/MWh", angle: -90, fill: c.axisColor, fontSize: 11 }} />
+        <Tooltip contentStyle={tooltipStyle} formatter={(v: number, n: string) => [`£${v}/MWh`, n]} />
+        <Legend {...lp} />
+        <Line dataKey="gasGbpMwh" name="NBP gas" stroke="#eb6834" dot={false} strokeWidth={2} hide={hide("gasGbpMwh")} />
+        <Line dataKey="price" name="day-ahead power" stroke="#2a78d6" dot={false} strokeWidth={2} hide={hide("price")} />
+        <Brush dataKey="date" height={20} stroke={c.axisColor} fill={c.tooltipBg} travellerWidth={8} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function SparkChart({ data }: { data: TsRow[] }) {
+  const c = useChartColors();
+  const { AXIS, tooltipStyle } = chartScales(c);
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <AreaChart data={data}>
+        <CartesianGrid stroke={c.gridColor} />
+        <XAxis dataKey="date" {...AXIS} minTickGap={60} />
+        <YAxis {...AXIS} label={{ value: "£/MWh", angle: -90, fill: c.axisColor, fontSize: 11 }} />
+        <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`£${v}/MWh`, "spark spread"]} />
+        <Area dataKey="sparkSpread" name="clean spark spread" stroke="#1baf7a" fill="#1baf7a33" strokeWidth={2} />
+        <Brush dataKey="date" height={20} stroke={c.axisColor} fill={c.tooltipBg} travellerWidth={8} />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+function CashoutChart({ data }: { data: TsRow[] }) {
+  const { hide, lp } = useLegendToggle();
+  const c = useChartColors();
+  const { AXIS, tooltipStyle } = chartScales(c);
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <ComposedChart data={data}>
+        <CartesianGrid stroke={c.gridColor} />
+        <XAxis dataKey="date" {...AXIS} minTickGap={60} />
+        <YAxis {...AXIS} label={{ value: "£/MWh", angle: -90, fill: c.axisColor, fontSize: 11 }} />
+        <Tooltip contentStyle={tooltipStyle} formatter={(v: number, n: string) => [`£${v}/MWh`, n]} />
+        <Legend {...lp} />
+        <Line dataKey="cashout" name="cash-out (system sell)" stroke="#4a3aa7" dot={false} hide={hide("cashout")} />
+        <Line dataKey="cashoutSpread" name="cash-out minus day-ahead" stroke="#e34948" dot={false} hide={hide("cashoutSpread")} />
+        <Brush dataKey="date" height={20} stroke={c.axisColor} fill={c.tooltipBg} travellerWidth={8} />
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
+function DemandChart({ data }: { data: TsRow[] }) {
+  const { hide, lp } = useLegendToggle();
+  const c = useChartColors();
+  const { AXIS, tooltipStyle } = chartScales(c);
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <LineChart data={data}>
+        <CartesianGrid stroke={c.gridColor} />
+        <XAxis dataKey="date" {...AXIS} minTickGap={60} />
+        <YAxis {...AXIS} label={{ value: "GW", angle: -90, fill: c.axisColor, fontSize: 11 }} />
+        <Tooltip contentStyle={tooltipStyle} formatter={(v: number, n: string) => [`${v} GW`, n]} />
+        <Legend {...lp} />
+        <Line dataKey="indoGW" name="INDO" stroke="#2a78d6" dot={false} hide={hide("indoGW")} />
+        <Line dataKey="itsdoGW" name="ITSDO" stroke="#1baf7a" dot={false} hide={hide("itsdoGW")} />
+        <Line dataKey="loadGW" name="ENTSO-E load" stroke="#eda100" dot={false} hide={hide("loadGW")} />
+        <Brush dataKey="date" height={20} stroke={c.axisColor} fill={c.tooltipBg} travellerWidth={8} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function BmChart({ data }: { data: TsRow[] }) {
+  const { hide, lp } = useLegendToggle();
+  const c = useChartColors();
+  const { AXIS, tooltipStyle } = chartScales(c);
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <ComposedChart data={data}>
+        <CartesianGrid stroke={c.gridColor} />
+        <XAxis dataKey="date" {...AXIS} minTickGap={60} />
+        <YAxis {...AXIS} label={{ value: "MWh/day", angle: -90, fill: c.axisColor, fontSize: 11 }} />
+        <Tooltip contentStyle={tooltipStyle} formatter={(v: number, n: string) => [`${v.toLocaleString()} MWh`, n]} />
+        <Legend {...lp} />
+        <Area dataKey="bmOfferMwh" name="accepted offers" stroke="#1baf7a" fill="#1baf7a33" hide={hide("bmOfferMwh")} />
+        <Area dataKey="bmBidMwh" name="accepted bids" stroke="#e34948" fill="#e3494833" hide={hide("bmBidMwh")} />
+        <Line dataKey="nivMwh" name="net imbalance volume" stroke={c.strongColor} dot={false} hide={hide("nivMwh")} />
+        <Brush dataKey="date" height={20} stroke={c.axisColor} fill={c.tooltipBg} travellerWidth={8} />
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }
