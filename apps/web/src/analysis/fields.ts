@@ -24,7 +24,7 @@ export interface Field {
   kind: FieldKind;
   origin: FieldOrigin;
   description: string;
-  /** Raw dataset column this field maps to (raw fields only) — used for the fill mask. */
+  /** Raw dataset column this field maps to (raw fields only) | used for the fill mask. */
   column?: string;
   /** Discrete values, for dimensions the UI offers as a checklist. */
   domain?: number[];
@@ -131,7 +131,7 @@ const DERIVED_FIELDS: (Field & { compute: (ds: Dataset) => Float64Array })[] = [
   {
     key: "residualDemand", label: "Residual demand", group: "Demand", unit: "MW",
     kind: "measure", origin: "derived", decimals: 0,
-    description: "System load minus total renewables — what the dispatchable fleet must cover.",
+    description: "System load minus total renewables | what the dispatchable fleet must cover.",
     compute: (ds) => ds.col("residualDemand"),
   },
   {
@@ -149,13 +149,13 @@ const DERIVED_FIELDS: (Field & { compute: (ds: Dataset) => Float64Array })[] = [
   {
     key: "cashoutSpread", label: "Cash-out minus day-ahead", group: "Imbalance & cash-out", unit: "GBP/MWh",
     kind: "measure", origin: "derived", decimals: 2,
-    description: "System sell price minus day-ahead price — the cost of being out of balance.",
+    description: "System sell price minus day-ahead price | the cost of being out of balance.",
     compute: (ds) => ds.col("cashoutSpread"),
   },
   {
     key: "windSpeedSpread", label: "Wind-farm speed spread", group: "Weather", unit: "m/s",
     kind: "measure", origin: "derived", decimals: 2,
-    description: "Hornsea One minus Whitelee 100 m wind speed — offshore/onshore weather basis.",
+    description: "Hornsea One minus Whitelee 100 m wind speed | offshore/onshore weather basis.",
     compute: (ds) => {
       const a = ds.col("windHornseaOne"), b = ds.col("windWhitelee");
       const out = new Float64Array(ds.rows);

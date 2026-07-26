@@ -67,7 +67,7 @@ const PRESETS: Preset[] = [
   },
   {
     name: "Tight system, dear gas",
-    blurb: "Periods with under 20% renewables and NBP above 100p — price and cash-out by day.",
+    blurb: "Periods with under 20% renewables and NBP above 100p | price and cash-out by day.",
     cfg: {
       type: "line", index: "t_deliveryDay", aggregate: true,
       series: [
@@ -246,7 +246,7 @@ export function AnalysisView({ ds }: { ds: Dataset }) {
     ["Source", ds.meta.source],
     ["Chart", def.label],
     ["Index", chartUses(def, "index") ? cfg.index : "(none)"],
-    ["Aggregated", tableAggregates ? "yes" : "no — one row per settlement period"],
+    ["Aggregated", tableAggregates ? "yes" : "no | one row per settlement period"],
     ["Filter mode", combinator === "and" ? "all conditions" : "any condition"],
     ...filters.filter((f) => f.enabled).map((f, i): [string, string] => [
       `Filter ${i + 1}`,
@@ -366,7 +366,7 @@ export function AnalysisView({ ds }: { ds: Dataset }) {
                 ))}
                 <p className="muted an-note">
                   A right-hand axis lets two units share one chart. It also makes any crossing point
-                  arbitrary — use it to compare shape, not level.
+                  arbitrary | use it to compare shape, not level.
                 </p>
               </div>
             )}
@@ -437,7 +437,7 @@ export function AnalysisView({ ds }: { ds: Dataset }) {
               </span>
             }
           >
-            {filters.length === 0 && <p className="muted an-note">No filters — every settlement period is in scope.</p>}
+            {filters.length === 0 && <p className="muted an-note">No filters | every settlement period is in scope.</p>}
             {filters.map((f) => (
               <div className="an-filter" key={f.id}>
                 <input
@@ -507,7 +507,7 @@ export function AnalysisView({ ds }: { ds: Dataset }) {
           >
             {customFields.length === 0 && (
               <p className="muted an-note">
-                Build a quantity from any others — it then appears in every picker and filter.
+                Build a quantity from any others | it then appears in every picker and filter.
               </p>
             )}
             {customFields.map((c) => (
@@ -627,7 +627,7 @@ function Stat({ label, v }: { label: string; v: string }) {
 }
 
 function fmt(v: number): string {
-  if (!Number.isFinite(v)) return "—";
+  if (!Number.isFinite(v)) return "|";
   const a = Math.abs(v);
   if (a >= 1e6) return `${(v / 1e6).toFixed(2)}M`;
   if (a >= 1000) return v.toLocaleString(undefined, { maximumFractionDigits: 0 });

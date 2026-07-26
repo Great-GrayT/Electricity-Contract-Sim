@@ -11,7 +11,7 @@ import type { PortfolioConfig } from "@gbsim/core";
 const here = dirname(fileURLToPath(import.meta.url));
 const full = await loadDatasetNode(join(here, "..", "..", "..", "data"));
 // The grid spans every source (2015 on); the hedging engine settles against the day-ahead
-// price, so it runs over that series' dense window — the same slice App.tsx hands the
+// price, so it runs over that series' dense window | the same slice App.tsx hands the
 // simulator. Feeding it the whole grid would annualise over years that have no price.
 const w = full.window("daPrice");
 const ds = w ? full.slice(w.from, w.to) : full;

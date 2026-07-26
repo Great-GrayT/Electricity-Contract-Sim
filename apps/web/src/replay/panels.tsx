@@ -89,7 +89,7 @@ export interface SnapRow {
 export type PriceDist = { bin: number; marketPct: number; paidPct: number };
 
 // ---------------------------------------------------------------------------
-// Shared legend-toggle hook — click a legend item to show/hide that series
+// Shared legend-toggle hook | click a legend item to show/hide that series
 // ---------------------------------------------------------------------------
 function useLegendToggle() {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
@@ -161,7 +161,7 @@ function WeatherBreakdown({ data }: { data: SnapRow[] }) {
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis yAxisId="t" {...AXIS} label={{ value: "°C", angle: -90, fill: axisColor, fontSize: 10 }} />
           <YAxis yAxisId="w" orientation="right" {...AXIS} label={{ value: "m/s", angle: 90, fill: axisColor, fontSize: 10 }} />
-          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [v == null ? "—" : `${v}${n.includes("wind") ? " m/s" : " °C"}`, n]} />} />
+          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [v == null ? "|" : `${v}${n.includes("wind") ? " m/s" : " °C"}`, n]} />} />
           <Legend {...lp} />
           <Line yAxisId="t" dataKey="wxTemp" name="temp 2m" stroke="#f0883e" dot={false} hide={hide("wxTemp")} />
           <Line yAxisId="t" dataKey="wxWtdTemp" name="temp (weighted)" stroke="#f2cc60" dot={false} strokeDasharray="4 3" hide={hide("wxWtdTemp")} />
@@ -219,7 +219,7 @@ export function PriceComparePanel({ data }: { data: SnapRow[] }) {
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "£/MWh", angle: -90, fill: axisColor, fontSize: 10 }} />
-          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [v == null ? "—" : `£${v}/MWh`, n]} />} />
+          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [v == null ? "|" : `£${v}/MWh`, n]} />} />
           <Legend {...lp} wrapperStyle={{ ...lp.wrapperStyle, fontSize: 11 }} />
           <Line dataKey="marketPrice" name="market (day-ahead)" stroke="#58a6ff" dot={false} hide={hide("marketPrice")} />
           <Line dataKey="imbalancePrice" name="cash-out (imbalance)" stroke="#f85149" dot={false} strokeDasharray="2 2" hide={hide("imbalancePrice")} />
@@ -305,7 +305,7 @@ export function PriceStackPanel({ data }: { data: SnapRow[] }) {
           <CartesianGrid stroke={GRID} />
           <XAxis dataKey="date" {...AXIS} minTickGap={40} />
           <YAxis {...AXIS} label={{ value: "£/MWh", angle: -90, fill: axisColor, fontSize: 10 }} />
-          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [v == null ? "—" : `£${v}/MWh`, n]} />} />
+          <Tooltip cursor={CURSOR} content={<SyncTooltip isHovered={isHovered} contentStyle={TT} formatter={(v: number, n: string) => [v == null ? "|" : `£${v}/MWh`, n]} />} />
           <Legend {...lp} wrapperStyle={{ ...lp.wrapperStyle, fontSize: 11 }} />
           <Line dataKey="consumerPaid" name="consumer pays us (tariff)" stroke="#d29922" dot={false} strokeWidth={2} hide={hide("consumerPaid")} />
           <Line dataKey="marketPrice" name="market (day-ahead)" stroke="#58a6ff" dot={false} hide={hide("marketPrice")} />

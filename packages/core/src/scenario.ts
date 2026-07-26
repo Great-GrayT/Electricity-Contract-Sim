@@ -169,7 +169,7 @@ export function forwardCurve(paths: Float64Array, nPaths: number, horizon: numbe
 }
 
 /**
- * Model-implied absolute vol (£/MWh) of the average delivery-period price over a horizon —
+ * Model-implied absolute vol (£/MWh) of the average delivery-period price over a horizon |
  * the correct underlying-uncertainty for a baseload strip option. Use as Bachelier sigma
  * with T=1 (the horizon uncertainty is already embedded). Mean-reversion-aware (unlike a
  * naive sqrt(N) scaling of the per-period innovation).

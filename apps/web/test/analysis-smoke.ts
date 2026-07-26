@@ -65,7 +65,7 @@ console.log(`  day-ahead over those periods: mean £${stats.mean.toFixed(1)}, me
 const all = applyFilters(store, [], "and", known).index;
 const allPrices: number[] = [];
 for (let k = 0; k < all.length; k++) { const v = da[all[k]!]!; if (v === v) allPrices.push(v); }
-console.log(`  whole dataset mean £${describe(allPrices).mean.toFixed(1)} — the filtered set should be dearer: ${stats.mean > describe(allPrices).mean ? "yes" : "NO"}`);
+console.log(`  whole dataset mean £${describe(allPrices).mean.toFixed(1)} | the filtered set should be dearer: ${stats.mean > describe(allPrices).mean ? "yes" : "NO"}`);
 
 // --- aggregation ----------------------------------------------------------------------
 const build = buildRecords(store, index, {

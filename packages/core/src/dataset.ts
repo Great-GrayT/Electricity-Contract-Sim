@@ -66,7 +66,7 @@ export class Dataset {
   /**
    * First and last row index where `column` holds a value, or null if it never does.
    * The grid spans every source, so a series that starts late (or stops early) has a
-   * narrower window than the dataset — use this before running anything that needs it dense.
+   * narrower window than the dataset | use this before running anything that needs it dense.
    */
   window(column: string): { from: number; to: number } | null {
     const col = this.col(column);

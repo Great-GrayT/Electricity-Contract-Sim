@@ -158,26 +158,31 @@ function windowSum(col: Float64Array, from: number, to: number): number {
   return n ? s : NaN;
 }
 
+/**
+ * One row per day. Every field is null on days the underlying series does not cover, since
+ * the dataset grid spans every source and each series starts at its own date | the charts
+ * then draw a gap rather than a fabricated zero.
+ */
 export interface DailyRow {
   date: string;
-  price: number; loadGW: number; windGW: number; solarGW: number;
-  nuclearGW: number; fossilGasGW: number;
+  price: number | null; loadGW: number | null; windGW: number | null; solarGW: number | null;
+  nuclearGW: number | null; fossilGasGW: number | null;
   /** NBP gas spot, GBp/therm, and the same price as GBP/MWh of gas. */
-  gasPence: number; gasGbpMwh: number;
+  gasPence: number | null; gasGbpMwh: number | null;
   /** Day-ahead minus gas at 50% CCGT efficiency. */
-  sparkSpread: number;
+  sparkSpread: number | null;
   /** Imbalance (cash-out) sell price and its spread to day-ahead. */
-  cashout: number; cashoutSpread: number;
+  cashout: number | null; cashoutSpread: number | null;
   /** Net imbalance volume, MWh per day (signed: +ve = system short). */
-  nivMwh: number;
+  nivMwh: number | null;
   /** National demand outturn, GW. */
-  indoGW: number; itsdoGW: number;
+  indoGW: number | null; itsdoGW: number | null;
   /** Accepted balancing-mechanism volumes, MWh per day. */
-  bmOfferMwh: number; bmBidMwh: number;
+  bmOfferMwh: number | null; bmBidMwh: number | null;
 }
 
 /**
- * Full time-series at daily resolution — one row per 48 half-hourly periods.
+ * Full time-series at daily resolution | one row per 48 half-hourly periods.
  * Power series are averaged (GW), volume series summed (MWh/day), prices averaged.
  */
 export function fullTimeSeries(ds: Dataset): DailyRow[] {
@@ -190,28 +195,29 @@ export function fullTimeSeries(ds: Dataset): DailyRow[] {
   const cashout = ds.col("imbalanceSell"), spread = ds.col("cashoutSpread"), niv = ds.col("niv");
   const indo = ds.col("indo"), itsdo = ds.col("itsdo");
   const bmOffer = ds.col("bmOfferVolBoalf"), bmBid = ds.col("bmBidVolBoalf");
-  const gw = (x: number) => (isNum(x) ? round(x / 1000) : NaN);
+  const num = (x: number) => (isNum(x) ? round(x) : null);
+  const gw = (x: number) => (isNum(x) ? round(x / 1000) : null);
   const out: DailyRow[] = [];
   for (let i = 0; i + STRIDE <= ds.rows; i += STRIDE) {
     const end = i + STRIDE;
     out.push({
       date: new Date(startMs + i * 30 * 60 * 1000).toISOString().slice(0, 10),
-      price: round(windowMean(daPrice, i, end)),
+      price: num(windowMean(daPrice, i, end)),
       loadGW: gw(windowMean(load, i, end)),
       windGW: gw(windowMean(wind, i, end)),
       solarGW: gw(windowMean(solar, i, end)),
       nuclearGW: gw(windowMean(nuclear, i, end)),
       fossilGasGW: gw(windowMean(fossilGas, i, end)),
-      gasPence: round(windowMean(gas, i, end)),
-      gasGbpMwh: round(windowMean(gasMwh, i, end)),
-      sparkSpread: round(windowMean(spark, i, end)),
-      cashout: round(windowMean(cashout, i, end)),
-      cashoutSpread: round(windowMean(spread, i, end)),
-      nivMwh: round(windowSum(niv, i, end)),            // NIV is already per-period MWh
+      gasPence: num(windowMean(gas, i, end)),
+      gasGbpMwh: num(windowMean(gasMwh, i, end)),
+      sparkSpread: num(windowMean(spark, i, end)),
+      cashout: num(windowMean(cashout, i, end)),
+      cashoutSpread: num(windowMean(spread, i, end)),
+      nivMwh: num(windowSum(niv, i, end)),              // NIV is already per-period MWh
       indoGW: gw(windowMean(indo, i, end)),
       itsdoGW: gw(windowMean(itsdo, i, end)),
-      bmOfferMwh: round(windowSum(bmOffer, i, end)),
-      bmBidMwh: round(windowSum(bmBid, i, end)),
+      bmOfferMwh: num(windowSum(bmOffer, i, end)),
+      bmBidMwh: num(windowSum(bmBid, i, end)),
     });
   }
   return out;

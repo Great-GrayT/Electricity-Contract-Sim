@@ -3,7 +3,7 @@
  *
  * Each entry declares which roles (index, measures, category axes, colour, size, bins) it
  * consumes, so the control panel can show exactly the selectors that chart needs, and carries
- * the hover guide shown next to its name — what the form is for, how to wire it up, and how to
+ * the hover guide shown next to its name | what the form is for, how to wire it up, and how to
  * read the result.
  *
  * `buildFigure` turns a chart config plus the filtered data into a Plotly figure. Nothing here
@@ -53,7 +53,7 @@ export const CHART_TYPES: ChartDef[] = [
   {
     id: "area", label: "Area", family: "Trend", roles: ["index", "measures", "split"], aggregates: true,
     guide: {
-      what: "A line with the region to the baseline filled — magnitude over time.",
+      what: "A line with the region to the baseline filled | magnitude over time.",
       setup: ["Index: a time field.", "Measures: one or two; more overlap badly.", "Use stacked area for a composition."],
       read: "Height is the level, not a share. Only meaningful when the measure is non-negative.",
     },
@@ -75,7 +75,7 @@ export const CHART_TYPES: ChartDef[] = [
     guide: {
       what: "Comparison of a value across a modest number of discrete buckets.",
       setup: ["Index: a dimension or coarse time field (year, month, hour of day).", "Measures: one or more; bars sit side by side."],
-      read: "Bars start at zero — length is directly comparable. Above ~40 buckets, use a line.",
+      read: "Bars start at zero | length is directly comparable. Above ~40 buckets, use a line.",
     },
   },
   {
@@ -99,7 +99,7 @@ export const CHART_TYPES: ChartDef[] = [
     guide: {
       what: "Relationship between two measures, one point per settlement period.",
       setup: ["X: the driver (e.g. renewable share).", "Y: the response (e.g. day-ahead price).", "Colour (optional): a third measure or dimension."],
-      read: "Look for shape, spread and outliers. Correlation is printed in the stats strip — it only describes the linear part.",
+      read: "Look for shape, spread and outliers. Correlation is printed in the stats strip | it only describes the linear part.",
     },
   },
   {
@@ -107,7 +107,7 @@ export const CHART_TYPES: ChartDef[] = [
     guide: {
       what: "Scatter with a third measure encoded as marker area.",
       setup: ["X and Y as for scatter.", "Size: a non-negative measure (volumes work well).", "Colour (optional): a fourth measure."],
-      read: "Area, not radius, carries the value. Keep the point count low — filter hard first.",
+      read: "Area, not radius, carries the value. Keep the point count low | filter hard first.",
     },
   },
   {
@@ -137,7 +137,7 @@ export const CHART_TYPES: ChartDef[] = [
   {
     id: "ecdf", label: "Cumulative (ECDF)", family: "Distribution", roles: ["xMeasure", "split"], aggregates: false,
     guide: {
-      what: "Empirical cumulative distribution — the share of periods at or below each level.",
+      what: "Empirical cumulative distribution | the share of periods at or below each level.",
       setup: ["Measure: the value to profile.", "Split by (optional): one curve per category to compare regimes."],
       read: "Read a threshold off the x-axis and its exceedance off the y-axis: at y = 0.95, 5% of periods are worse.",
     },
@@ -145,7 +145,7 @@ export const CHART_TYPES: ChartDef[] = [
   {
     id: "durationCurve", label: "Duration curve", family: "Distribution", roles: ["xMeasure", "split"], aggregates: false,
     guide: {
-      what: "Values sorted high to low against the share of time — the standard price/load duration view.",
+      what: "Values sorted high to low against the share of time | the standard price/load duration view.",
       setup: ["Measure: price, load, generation or a spread.", "Split by (optional): one curve per year to compare regimes."],
       read: "The left shoulder is the scarcity tail, the right tail the surplus. Area under the curve is the mean.",
     },
@@ -161,7 +161,7 @@ export const CHART_TYPES: ChartDef[] = [
   {
     id: "violin", label: "Violin", family: "Distribution", roles: ["yMeasure", "group"], aggregates: false,
     guide: {
-      what: "Like a box plot but showing the full density — reveals bimodality a box hides.",
+      what: "Like a box plot but showing the full density | reveals bimodality a box hides.",
       setup: ["Measure: the value to profile.", "Group: the dimension to compare."],
       read: "Width is relative frequency at that level. Two bulges means two regimes.",
     },
@@ -169,7 +169,7 @@ export const CHART_TYPES: ChartDef[] = [
   {
     id: "pivotHeatmap", label: "Pivot heatmap", family: "Matrix", roles: ["catX", "catY", "zMeasure"], aggregates: true,
     guide: {
-      what: "One aggregated value per cell of two dimensions — the classic hour x month price map.",
+      what: "One aggregated value per cell of two dimensions | the classic hour x month price map.",
       setup: ["X category and Y category: two dimensions (hour of day, month, year, day of week).", "Value: the measure and its aggregation."],
       read: "Colour is the aggregated value. Blank cells had no periods after filtering.",
     },
@@ -193,7 +193,7 @@ export const CHART_TYPES: ChartDef[] = [
   {
     id: "parcoords", label: "Parallel coordinates", family: "Matrix", roles: ["measureList", "color"], aggregates: false,
     guide: {
-      what: "One line per period across several axes — how conditions co-occur.",
+      what: "One line per period across several axes | how conditions co-occur.",
       setup: ["Measures: 3–8 axes.", "Colour (optional): the measure whose value should tint the lines."],
       read: "Drag on any axis to brush a range; the other axes show what those periods look like.",
     },
@@ -203,7 +203,7 @@ export const CHART_TYPES: ChartDef[] = [
     guide: {
       what: "Three measures at once, rotatable.",
       setup: ["X, Y, Z: three measures.", "Colour (optional): a fourth.", "Size (optional): a fifth, non-negative."],
-      read: "Rotate before concluding anything — a 3D cloud can look like structure from one angle. Two 2D scatters are often clearer.",
+      read: "Rotate before concluding anything | a 3D cloud can look like structure from one angle. Two 2D scatters are often clearer.",
     },
   },
   {

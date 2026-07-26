@@ -61,7 +61,7 @@ function crc32(bytes: Uint8Array): number {
 
 interface ZipEntry { name: string; bytes: Uint8Array; crc: number; offset: number }
 
-/** Minimal zip writer, stored (uncompressed) entries — valid for xlsx. */
+/** Minimal zip writer, stored (uncompressed) entries | valid for xlsx. */
 function zip(files: { name: string; content: string }[]): Blob {
   const enc = new TextEncoder();
   const chunks: Uint8Array[] = [];

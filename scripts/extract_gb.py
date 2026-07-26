@@ -554,7 +554,7 @@ def main():
 
     # --- write the column-major binary ------------------------------------------------
     # Time axes stay float64 (epoch-ms needs the mantissa); every measurement is float32,
-    # which halves the payload at ~7 significant digits — far more than any of these series
+    # which halves the payload at ~7 significant digits | far more than any of these series
     # carries. f64 columns are written first so both blocks stay naturally aligned.
     dtypes = {n: ("f64" if n in F64_COLUMNS else "f32") for n in names}
     order = [i for i, n in enumerate(names) if dtypes[n] == "f64"]
@@ -568,7 +568,7 @@ def main():
         for name, col in zip(names, cols):
             fo.write(col.tobytes() if dtypes[name] == "f64" else col.tobytes_f32())
     raw_size = os.path.getsize(bin_path)
-    # NB: extension is .z, not .gz — static servers (Vite's sirv, and CDNs) special-case .gz
+    # NB: extension is .z, not .gz | static servers (Vite's sirv, and CDNs) special-case .gz
     # by content-negotiating it against a sibling file, which breaks a direct fetch. With .z
     # the bytes arrive untouched and the browser loader inflates them itself.
     with open(bin_path, "rb") as fi, gzip.open(bin_path + ".z", "wb", compresslevel=6) as fo:

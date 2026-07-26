@@ -180,7 +180,7 @@ export interface SeriesSpec {
   id: string;
   field: string;
   agg: Agg;
-  /** "y" or "y2" — a second axis is offered because unit mixes are the whole point here. */
+  /** "y" or "y2" | a second axis is offered because unit mixes are the whole point here. */
   axis: "y" | "y2";
   label?: string;
 }

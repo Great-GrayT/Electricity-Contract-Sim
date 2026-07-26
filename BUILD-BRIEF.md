@@ -8,7 +8,7 @@
 
 ### Kickoff prompt (paste this)
 
-> Read `BUILD-BRIEF.md` in the repo. Step 0: inspect this project and report back the framework, router, language/build setup, styling system, and any existing nav or home page you find, plus your implementation plan. Wait for my go-ahead on the plan. Then implement the home page deck and the navbar exactly per the brief, matching the conventions already in this repo. Hard rule: never write an em dash (the "—" character) anywhere, in copy, comments, or code. Ask me before adding any new dependency.
+> Read `BUILD-BRIEF.md` in the repo. Step 0: inspect this project and report back the framework, router, language/build setup, styling system, and any existing nav or home page you find, plus your implementation plan. Wait for my go-ahead on the plan. Then implement the home page deck and the navbar exactly per the brief, matching the conventions already in this repo. Hard rule: never write an em dash (the "|" character) anywhere, in copy, comments, or code. Ask me before adding any new dependency.
 
 ---
 
@@ -152,7 +152,7 @@ Give each chart descriptive `alt` text (the slide caption is a good basis).
 
 ## 9. Hard rules
 
-- **Never use an em dash ("—") anywhere**, in UI copy, comments, commit messages, or code. Use commas, colons, parentheses, hyphens, or the word "to" for ranges. Do not use en dashes ("–") as separators either; use "to".
+- **Never use an em dash ("|") anywhere**, in UI copy, comments, commit messages, or code. Use commas, colons, parentheses, hyphens, or the word "to" for ranges. Do not use en dashes ("–") as separators either; use "to".
 - TypeScript strict, no `any`. Match the repo's lint/format config.
 - Reuse the existing styling system and conventions. Add tokens, do not fork the system.
 - Do not break existing routes. Replace only the home/index content and add or extend the navbar.

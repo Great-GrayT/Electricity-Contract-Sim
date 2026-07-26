@@ -349,7 +349,7 @@ export function ReplayView({ ds }: { ds: Dataset }) {
             <button onClick={() => { setMode("selecting"); setStartBarIdx(null); }}>↺ Re-pick start</button>
           )}
           <span className="muted">
-            start: {startBarIdx != null ? fmtDate(mapBars[startBarIdx]!.time) : "—"}
+            start: {startBarIdx != null ? fmtDate(mapBars[startBarIdx]!.time) : "|"}
           </span>
           <Field label={`② contract length: ${months} mo`}>
             <input type="range" min={1} max={36} step={1} value={months} onChange={(e) => setMonths(+e.target.value)} disabled={mode === "running"} />
@@ -431,7 +431,7 @@ export function ReplayView({ ds }: { ds: Dataset }) {
 }
 
 const round = (x: number, d = 1) => { const p = 10 ** d; return Math.round(x * p) / p; };
-const num = (x: number, d = 2) => (x === x ? x.toFixed(d) : "—");
+const num = (x: number, d = 2) => (x === x ? x.toFixed(d) : "|");
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="ctrl" style={{ minWidth: 180 }}><label>{label}</label>{children}</div>;

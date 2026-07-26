@@ -21,7 +21,7 @@ proxy revenue swap, PPA shapes, BESS arbitrage, integrated portfolio risk).
 Half-hourly, **2015-01-01 → 2026-06-02, 200,208 periods, 52 columns** (43 MB raw / 13 MB gzipped;
 measurements are float32, time axes float64).
 
-The row space is a **generated, gap-free half-hourly grid spanning every half-hourly source** —
+The row space is a **generated, gap-free half-hourly grid spanning every half-hourly source** |
 the GB sheet is one input, not the row space, so the Elexon extracts and the workbook keep the
 years they reach back to instead of being clipped at 2020. Everything joins on the settlement key
 `round(excel_serial * 48)`. NBP is excluded from the span (daily, back to 2001) so it cannot
@@ -45,7 +45,7 @@ page keeps the whole grid.
 | `data/elexon_demand_outturn_*.parquet` | INDO and ITSDO national demand |
 | `data/elexon_bm_accepted_volumes_*.parquet` | BOALF offer/bid/net volumes and acceptance counts |
 | `data/gb_renewable_datasets.xlsx` | per-farm wind speed (Hornsea One, Dogger Bank A, Sheringham Shoal, Walney Ext, Whitelee), per-city temperature (London, Manchester, Edinburgh, Birmingham), weighted weather indices, DC/DM/DR clearing prices, and its own hourly power price for 2015-2020 (`workbook_price_gbp_mwh`) |
-| `data/NBP spot_*.xlsx` (first sheet) | NBP natural-gas spot, GBp/therm, daily — joined on calendar day and carried forward at most 5 days over non-trading days |
+| `data/NBP spot_*.xlsx` (first sheet) | NBP natural-gas spot, GBp/therm, daily | joined on calendar day and carried forward at most 5 days over non-trading days |
 
 Verified: per-year price reproduces the report exactly (2022 £198, 2025 £80, 2026 £92); wind
 capture £86.6 vs baseload £98.6 → quality factor **0.878** (real cannibalisation). `gb.meta.json`
@@ -61,17 +61,17 @@ columns and never merged.
 A data explorer over the same dataset: pick a chart, an index, measures and filters, then export
 what you see.
 
-- **72 fields** — every raw column plus derived quantities (total generation, renewable/wind share,
+- **72 fields** | every raw column plus derived quantities (total generation, renewable/wind share,
   residual demand, gas £/MWh, clean spark spread, cash-out spread, wind-farm speed basis) and
   calendar attributes (settlement day, delivery day, week/month/quarter, year, month of year,
   day of week, hour, weekend flag).
-- **Filters** — field conditions (`>`, `between`, `is one of`, `is missing`, …) combined with
+- **Filters** | field conditions (`>`, `between`, `is one of`, `is missing`, …) combined with
   all/any, plus formula conditions such as `renewShare < 0.2 and nbpPence > 100`. Formulas are
   parsed and compiled, never `eval`'d; a missing value never satisfies a condition.
-- **Custom fields** — name a formula (`(totalWind + solar) / totalGen`) and it joins every picker.
+- **Custom fields** | name a formula (`(totalWind + solar) / totalGen`) and it joins every picker.
 - **21 chart types** across trend, distribution, relationship, matrix and 3-D families, each with a
   hover guide covering what it is for, how to wire it up and how to read it.
-- **Table + export** — sortable, paginated, exports to CSV and XLSX with a Definition sheet
+- **Table + export** | sortable, paginated, exports to CSV and XLSX with a Definition sheet
   recording the dataset span, filters, formulas and row counts that produced the extract.
 
 ## Layout

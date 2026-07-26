@@ -27,7 +27,7 @@ function headerFor(fields: Field[], key: string, splitField?: string): string {
 }
 
 function formatCell(v: number | undefined, field: Field | undefined, isDate: boolean): string {
-  if (v === undefined || v === null || v !== v) return "—";
+  if (v === undefined || v === null || v !== v) return "|";
   if (isDate) {
     const d = new Date(v);
     return field?.unit === "date" ? d.toISOString().slice(0, 10) : d.toISOString().slice(0, 16).replace("T", " ");

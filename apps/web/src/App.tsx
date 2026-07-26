@@ -43,8 +43,11 @@ export function App() {
   useEffect(() => { loadDataset().then(setDs).catch((e) => setErr(String(e))); }, []);
 
   /**
-   * The dataset grid spans every source (2015 on), but the simulator needs the dense region
-   * where the day-ahead price it settles against actually exists. Analysis keeps the full grid.
+   * The grid spans every source, each starting at its own date (weather 2015, cash-out 2015-11,
+   * demand and BM 2016, the day-ahead price 2020). Charts and descriptive stats read the whole
+   * grid so every series shows its full history; only the modelling layer | which settles,
+   * calibrates and annualises against the day-ahead price | runs on that series' dense window,
+   * because outside it there is no price to settle against.
    */
   const simDs = useMemo(() => {
     if (!ds) return null;
@@ -61,11 +64,11 @@ export function App() {
   }, [view]);
 
   // light panels (compute once on load)
-  const profile = useMemo(() => (simDs ? dayProfile(simDs) : []), [simDs]);
-  const yearly = useMemo(() => (simDs ? yearlyPrice(simDs) : []), [simDs]);
-  const capture = useMemo(() => (simDs ? captureStats(simDs) : null), [simDs]);
+  const profile = useMemo(() => (ds ? dayProfile(ds) : []), [ds]);
+  const yearly = useMemo(() => (ds ? yearlyPrice(ds) : []), [ds]);
+  const capture = useMemo(() => (ds ? captureStats(ds) : null), [ds]);
   const fan = useMemo(() => (simDs ? forwardFan(simDs, 7, 200) : []), [simDs]);
-  const timeSeries = useMemo(() => (simDs ? fullTimeSeries(simDs) : []), [simDs]);
+  const timeSeries = useMemo(() => (ds ? fullTimeSeries(ds) : []), [ds]);
 
   function runAnalysis() {
     const d = simDs;
@@ -117,7 +120,7 @@ export function App() {
               <>
                 <h1>GB Renewable-Backed Supplier: Hedging Simulator</h1>
                 <p className="sub">
-                  {(simDs ?? ds).rows.toLocaleString()} half-hourly periods &middot; {(simDs ?? ds).meta.start?.slice(0, 10)} to {(simDs ?? ds).meta.end?.slice(0, 10)} &middot;
+                  {ds.rows.toLocaleString()} half-hourly periods &middot; {ds.meta.start?.slice(0, 10)} to {ds.meta.end?.slice(0, 10)} &middot;
                   replay + simulate the hedging book.{" "}
                   <span className="tag real">real</span> = from data,{" "}
                   <span className="tag model">model</span> = calibrated scenario.
@@ -198,7 +201,7 @@ export function App() {
 
                 {/* Full historical time-series */}
                 <div className="card full">
-                  <h2>Day-ahead price — full history <span className="tag real">real</span></h2>
+                  <h2>Day-ahead price | full history <span className="tag real">real</span></h2>
                   <PriceHistoryChart data={timeSeries} />
                   <p className="muted">Daily-averaged day-ahead (N2EX) price across the entire dataset.</p>
                 </div>
@@ -210,7 +213,7 @@ export function App() {
                 </div>
 
                 <div className="card">
-                  <h2>Generation mix — stacked <span className="tag real">real</span></h2>
+                  <h2>Generation mix | stacked <span className="tag real">real</span></h2>
                   <GenStackChart data={timeSeries} />
                   <p className="muted">Wind, solar, nuclear and fossil gas share of national output, daily average GW.</p>
                 </div>
@@ -233,7 +236,7 @@ export function App() {
                 <div className="card">
                   <h2>Cash-out vs day-ahead <span className="tag real">real</span></h2>
                   <CashoutChart data={timeSeries} />
-                  <p className="muted">System sell price minus day-ahead, daily average. This is the price of being out of balance — the residual leg a supplier carries.</p>
+                  <p className="muted">System sell price minus day-ahead, daily average. This is the price of being out of balance | the residual leg a supplier carries.</p>
                 </div>
 
                 <div className="card">
@@ -261,7 +264,11 @@ export function App() {
                   </div>
                   <div style={{ marginTop: 16 }}>
                     <button onClick={runAnalysis} disabled={running}>{running ? "Running…" : "Run risk analysis"}</button>
-                    <span className="muted" style={{ marginLeft: 12 }}>Runs option pricing, BESS dispatch DP and bootstrap risk waterfall on real data.</span>
+                    <span className="muted" style={{ marginLeft: 12 }}>
+                      Runs option pricing, BESS dispatch DP and bootstrap risk waterfall on real data
+                      {simDs && simDs.rows < ds.rows &&
+                        `, over the ${simDs.rows.toLocaleString()} periods from ${simDs.meta.start?.slice(0, 10)} where the day-ahead price exists`}.
+                    </span>
                   </div>
                 </div>
 
