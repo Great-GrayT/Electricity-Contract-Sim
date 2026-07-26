@@ -29,9 +29,27 @@ stretch the grid with rows only one column could fill.
 
 Each column therefore starts and stops at its own date; `gb.meta.json` records `coverage`
 (first/last populated timestamp) per column, and the analysis page shows it in each field's
-tooltip. Roughly: weather from 2015, cash-out from 2015-11, demand and wind/solar outturn from
-2016-02, BM volumes from 2016-09, the base sheet's price/load/generation mix from 2020-01,
-DC prices 2021-22, DM/DR 2022.
+tooltip. Charts trim themselves to the span of the series they draw, so a 2020-only series does
+not open with five years of blank axis.
+
+What actually exists before 2020 (audited against the source files, not assumed):
+
+| Series | Earliest | Source |
+|---|---|---|
+| NBP gas spot | 2001-10-15, clipped to the 2015 grid start | NBP workbook |
+| Weather: weighted, per-farm, per-city | 2015-01-01 | `gb_renewable_datasets.xlsx` |
+| Workbook power price (hourly, ends 2020-12-31) | 2015-01-01 | `gb_renewable_datasets.xlsx` |
+| Cash-out, NIV, accepted volumes | 2015-11-06 | Elexon system prices |
+| INDO / ITSDO demand | 2016-02-29 | Elexon demand outturn |
+| Elexon wind and solar outturn | 2016-02-29 | Elexon wind/solar actuals |
+| BM offer/bid volumes | 2016-09-12 | Elexon BM accepted volumes |
+| **Day-ahead price, system load, ENTSO-E generation mix, base weather** | **2020-01-01** | `GB-realtime-data.xlsx` |
+
+The last row is a property of the source, not of the pipeline: every sheet in
+`GB-realtime-data.xlsx` (`GB` and `GB_adjust` are both 112,363 rows; the rest are pivot
+summaries) starts at 2020-01-01. There is no earlier day-ahead price, load or fuel-level
+generation mix anywhere in the supplied files. DC clearing prices cover 2021-09 to 2022-10,
+DM/DR 2022 only.
 
 Because of that, `Dataset.window(column)` + `Dataset.slice(from, to)` exist: the simulator and
 replay run over the dense day-ahead-price window (112,560 periods, 2020 on), while the analysis

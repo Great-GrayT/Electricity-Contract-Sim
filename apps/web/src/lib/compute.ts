@@ -144,6 +144,22 @@ export function structuralSummary(ds: Dataset, book: SupplyBook) {
 const round = (x: number) => Math.round(x * 100) / 100;
 export { std };
 
+/**
+ * Drop leading and trailing rows where none of `keys` holds a value.
+ *
+ * The dataset grid spans every source, so a chart of a series that only starts in 2020 would
+ * otherwise open with five years of blank axis. Interior gaps are kept, since a hole in the
+ * middle of a series is information.
+ */
+export function trimToCoverage<T>(rows: T[], keys: (keyof T)[]): T[] {
+  const has = (r: T) => keys.some((k) => { const v = r[k]; return v !== null && v !== undefined && v === v; });
+  let lo = 0;
+  while (lo < rows.length && !has(rows[lo]!)) lo++;
+  let hi = rows.length;
+  while (hi > lo && !has(rows[hi - 1]!)) hi--;
+  return lo === 0 && hi === rows.length ? rows : rows.slice(lo, hi);
+}
+
 /** Mean over a half-open row window, skipping NaN. NaN when the window holds no observation. */
 function windowMean(col: Float64Array, from: number, to: number): number {
   let s = 0, n = 0;

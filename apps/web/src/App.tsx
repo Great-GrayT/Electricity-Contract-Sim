@@ -7,7 +7,8 @@ import type { Dataset, PortfolioConfig } from "@gbsim/core";
 import { loadDataset } from "./lib/data";
 import {
   toBook, dayProfile, yearlyPrice, captureStats, forwardFan, optionPricing,
-  riskWaterfall, batterySweep, structuralSummary, fullTimeSeries, type BookControls,
+  riskWaterfall, batterySweep, structuralSummary, fullTimeSeries, trimToCoverage,
+  type BookControls,
 } from "./lib/compute";
 import { ReplayView } from "./replay/ReplayView";
 import { AnalysisView } from "./analysis/AnalysisView";
@@ -433,7 +434,8 @@ function WaterfallChart({ data }: { data: { label: string; std: number; downside
 
 type TsRow = ReturnType<typeof fullTimeSeries>[number];
 
-function PriceHistoryChart({ data }: { data: TsRow[] }) {
+function PriceHistoryChart({ data: rows }: { data: TsRow[] }) {
+  const data = useMemo(() => trimToCoverage(rows, ["price"]), [rows]);
   const c = useChartColors();
   const { AXIS, tooltipStyle } = chartScales(c);
   return (
@@ -450,7 +452,8 @@ function PriceHistoryChart({ data }: { data: TsRow[] }) {
   );
 }
 
-function LoadGenChart({ data }: { data: TsRow[] }) {
+function LoadGenChart({ data: rows }: { data: TsRow[] }) {
+  const data = useMemo(() => trimToCoverage(rows, ["loadGW", "windGW", "solarGW"]), [rows]);
   const { hide, lp } = useLegendToggle();
   const c = useChartColors();
   const { AXIS, tooltipStyle } = chartScales(c);
@@ -471,7 +474,8 @@ function LoadGenChart({ data }: { data: TsRow[] }) {
   );
 }
 
-function GenStackChart({ data }: { data: TsRow[] }) {
+function GenStackChart({ data: rows }: { data: TsRow[] }) {
+  const data = useMemo(() => trimToCoverage(rows, ["windGW", "solarGW", "nuclearGW", "fossilGasGW"]), [rows]);
   const { hide, lp } = useLegendToggle();
   const c = useChartColors();
   const { AXIS, tooltipStyle } = chartScales(c);
@@ -493,7 +497,8 @@ function GenStackChart({ data }: { data: TsRow[] }) {
   );
 }
 
-function GasChart({ data }: { data: TsRow[] }) {
+function GasChart({ data: rows }: { data: TsRow[] }) {
+  const data = useMemo(() => trimToCoverage(rows, ["gasGbpMwh", "price"]), [rows]);
   const { hide, lp } = useLegendToggle();
   const c = useChartColors();
   const { AXIS, tooltipStyle } = chartScales(c);
@@ -513,7 +518,8 @@ function GasChart({ data }: { data: TsRow[] }) {
   );
 }
 
-function SparkChart({ data }: { data: TsRow[] }) {
+function SparkChart({ data: rows }: { data: TsRow[] }) {
+  const data = useMemo(() => trimToCoverage(rows, ["sparkSpread"]), [rows]);
   const c = useChartColors();
   const { AXIS, tooltipStyle } = chartScales(c);
   return (
@@ -530,7 +536,8 @@ function SparkChart({ data }: { data: TsRow[] }) {
   );
 }
 
-function CashoutChart({ data }: { data: TsRow[] }) {
+function CashoutChart({ data: rows }: { data: TsRow[] }) {
+  const data = useMemo(() => trimToCoverage(rows, ["cashout", "cashoutSpread"]), [rows]);
   const { hide, lp } = useLegendToggle();
   const c = useChartColors();
   const { AXIS, tooltipStyle } = chartScales(c);
@@ -550,7 +557,8 @@ function CashoutChart({ data }: { data: TsRow[] }) {
   );
 }
 
-function DemandChart({ data }: { data: TsRow[] }) {
+function DemandChart({ data: rows }: { data: TsRow[] }) {
+  const data = useMemo(() => trimToCoverage(rows, ["indoGW", "itsdoGW", "loadGW"]), [rows]);
   const { hide, lp } = useLegendToggle();
   const c = useChartColors();
   const { AXIS, tooltipStyle } = chartScales(c);
@@ -571,7 +579,8 @@ function DemandChart({ data }: { data: TsRow[] }) {
   );
 }
 
-function BmChart({ data }: { data: TsRow[] }) {
+function BmChart({ data: rows }: { data: TsRow[] }) {
+  const data = useMemo(() => trimToCoverage(rows, ["bmOfferMwh", "bmBidMwh", "nivMwh"]), [rows]);
   const { hide, lp } = useLegendToggle();
   const c = useChartColors();
   const { AXIS, tooltipStyle } = chartScales(c);
